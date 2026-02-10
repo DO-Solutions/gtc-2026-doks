@@ -151,3 +151,4 @@ For unattended periods, a scenario controller cycles through the above phases au
 - **Discussion ≠ planning.** When asked a question or for a discussion, respond conversationally. Do not create plan files or ask clarifying questions when a direct answer is what's needed.
 - **Check naming conflicts.** Before creating new files or scripts, check for naming conflicts with existing project files and terminology.
 - **Validation is mandatory.** Every plan must include validation steps. Executing validation is part of completing the work — not optional. If validation fails, continue fixing until it passes or you are genuinely blocked. When finished, report: (1) what was done, (2) how validation was performed, (3) validation results.
+- **Never commit secrets.** Never store or commit secrets in the repo. All should be based on env vars, which can be set by sourcing files outside the repo.
