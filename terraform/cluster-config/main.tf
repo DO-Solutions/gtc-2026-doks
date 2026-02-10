@@ -98,23 +98,6 @@ resource "kubernetes_persistent_volume_v1" "model_nfs" {
   }
 }
 
-resource "kubernetes_persistent_volume_claim_v1" "model_nfs" {
-  metadata {
-    name      = "model-nfs-pvc"
-    namespace = kubernetes_namespace_v1.dynamo_workload.metadata[0].name
-  }
-  spec {
-    access_modes       = ["ReadWriteMany"]
-    storage_class_name = "nfs-static"
-    volume_name        = kubernetes_persistent_volume_v1.model_nfs.metadata[0].name
-    resources {
-      requests = {
-        storage = "${local.nfs_size_gb}Gi"
-      }
-    }
-  }
-}
-
 # --- GPU Network Tuner DaemonSet ---
 
 resource "kubernetes_daemon_set_v1" "gpu_network_tuner" {

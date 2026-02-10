@@ -13,11 +13,6 @@ output "monitoring_namespace" {
   value       = kubernetes_namespace_v1.monitoring.metadata[0].name
 }
 
-output "model_nfs_pvc_name" {
-  description = "Name of the PVC for NFS model storage"
-  value       = kubernetes_persistent_volume_claim_v1.model_nfs.metadata[0].name
-}
-
 output "prometheus_endpoint" {
   description = "In-cluster Prometheus endpoint URL"
   value       = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-nfs-pvc
+  namespace: dynamo-workload
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-static
+  volumeName: model-nfs-pv
+  resources:
+    requests:
+      storage: 16000Gi
