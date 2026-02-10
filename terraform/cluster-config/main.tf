@@ -87,7 +87,7 @@ resource "kubernetes_persistent_volume_v1" "model_nfs" {
     }
     access_modes                     = ["ReadWriteMany"]
     persistent_volume_reclaim_policy = "Retain"
-    storage_class_name               = ""
+    storage_class_name               = "nfs-static"
     mount_options                    = ["nfsvers=4.1", "nconnect=16"]
     persistent_volume_source {
       nfs {
@@ -105,15 +105,11 @@ resource "kubernetes_persistent_volume_claim_v1" "model_nfs" {
   }
   spec {
     access_modes       = ["ReadWriteMany"]
-    storage_class_name = ""
+    storage_class_name = "nfs-static"
+    volume_name        = kubernetes_persistent_volume_v1.model_nfs.metadata[0].name
     resources {
       requests = {
         storage = "${local.nfs_size_gb}Gi"
-      }
-    }
-    selector {
-      match_labels = {
-        type = "model-nfs"
       }
     }
   }
@@ -197,11 +193,11 @@ resource "kubernetes_daemon_set_v1" "gpu_network_tuner" {
           resources {
             requests = {
               cpu    = "1m"
-              memory = "1Mi"
+              memory = "16Mi"
             }
             limits = {
-              cpu    = "1m"
-              memory = "1Mi"
+              cpu    = "10m"
+              memory = "16Mi"
             }
           }
         }
@@ -240,6 +236,14 @@ resource "helm_release" "dynamo_platform" {
     value = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
   }
 
+  # The KAI operator auto-configures scheduling shards and GPU topology
+  # from NVIDIA GPU Operator resources, which DOKS doesn't use. We only
+  # need the KAI scheduler for gang scheduling, so disable the operator.
+  set {
+    name  = "kai-scheduler.operator.replicaCount"
+    value = "0"
+  }
+
   depends_on = [helm_release.dynamo_crds]
 }
 
@@ -274,12 +278,33 @@ resource "helm_release" "kube_prometheus_stack" {
   depends_on = [helm_release.dynamo_platform]
 }
 
-# 4. DCGM Exporter
+# 4. DCGM Exporter (GPU nodes only)
 resource "helm_release" "dcgm_exporter" {
   name       = "dcgm-exporter"
   repository = "https://nvidia.github.io/dcgm-exporter/helm-charts"
   chart      = "dcgm-exporter"
   namespace  = kubernetes_namespace_v1.monitoring.metadata[0].name
+
+  values = [yamlencode({
+    affinity = {
+      nodeAffinity = {
+        requiredDuringSchedulingIgnoredDuringExecution = {
+          nodeSelectorTerms = [{
+            matchExpressions = [{
+              key      = "doks.digitalocean.com/gpu-brand"
+              operator = "In"
+              values   = ["nvidia"]
+            }]
+          }]
+        }
+      }
+    }
+    tolerations = [{
+      key      = "nvidia.com/gpu"
+      operator = "Exists"
+      effect   = "NoSchedule"
+    }]
+  })]
 
   depends_on = [helm_release.kube_prometheus_stack]
 }
