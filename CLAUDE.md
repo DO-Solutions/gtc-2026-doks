@@ -73,7 +73,7 @@ For unattended periods, a scenario controller cycles through the above phases au
 - **Terraform** (two stacks): Stack 1 = VPC + DOKS + NFS. Stack 2 = Helm releases + K8s baseline (namespaces, RuntimeClass, secrets, Dynamo CRDs + Platform + Grove + KAI, Prometheus, Grafana, KEDA, dcgm-exporter).
 - **Kubernetes manifests** for application workloads (DGD CRs, KEDA ScaledObjects, load generator).
 - **Make** for orchestration of all targets.
-- **Container images** published to `registry.digitalocean.com/do-solutions-sfo3/` with `gtc-demo-` prefix, tagged with short git SHA. DOKS has `registry_integration = true` for automatic pull access.
+- **Container images** published to `registry.digitalocean.com/do-solutions-sfo3/` with `gtc-demo-` prefix, tagged with `YYYYMMDD-<short SHA>`. DOKS has `registry_integration = true` for automatic pull access.
 
 ### Critical Rules (Always Follow)
 
@@ -116,3 +116,38 @@ For unattended periods, a scenario controller cycles through the above phases au
 - `apps/load-generator/` — Load gen UI + backend (Node.js/Express + React)
 - `apps/corpus-curator/` — Document corpus preparation
 - `scripts/` — Helper scripts called by Make
+
+## Local Environment
+
+### Secrets & Auth
+
+- **Env file:** `source /home/jjk3/env/gtc.env` before any make/terraform/doctl commands. Contains: `DIGITALOCEAN_ACCESS_TOKEN`, `DIGITALOCEAN_TOKEN`, `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `HF_TOKEN`, `GRADIENT_API_KEY`. All are populated.
+- **doctl context:** Always use `--context solutions` (Solutions team account).
+- **Docker registry auth:** Run `doctl registry login --context solutions` before pushing images.
+
+### Tools (All Installed — Do Not Check or Install)
+
+`doctl`, `kubectl`, `helm`, `terraform`, `docker`, `node`/`npm`, `python3`, `make`, `git`
+
+### Pre-existing Resources (Do Not Create)
+
+| Resource | Name | Region | Notes |
+|----------|------|--------|-------|
+| Spaces bucket | `do-gtc2026-doks-demo` | `atl1` | Already exists. Model cache + corpus storage. |
+| Container registry | `do-solutions-sfo3` | `sfo3` | Already exists. `registry_integration = true` on DOKS handles pull access. |
+
+## Workflow
+
+- **Terraform state:** Local (terraform.tfstate in each stack directory).
+- **Env sourcing:** Manual — run `source /home/jjk3/env/gtc.env` before make/terraform. Makefile's `check-env` target validates required vars are set.
+- **Kubeconfig:** After cluster creation, save via `doctl kubernetes cluster kubeconfig save gtc-demo --context solutions`. kubectl context: `do-atl1-gtc-demo`.
+- **Image tagging:** `TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)` — date prefix + short git SHA (e.g., `20260210-a1b2c3d`).
+
+## Rules
+
+- **Implement ALL plan steps.** When given a plan, read the entire plan before starting. Do not skip steps or assume parts are optional.
+- **Live cluster is source of truth.** When checking cluster state (node labels, taints, pod status, resources), use `kubectl` — do not search the codebase for patterns.
+- **Go direct when the target is known.** When given a specific file to edit, go to it. Do not explore the codebase first unless asked to investigate.
+- **Discussion ≠ planning.** When asked a question or for a discussion, respond conversationally. Do not create plan files or ask clarifying questions when a direct answer is what's needed.
+- **Check naming conflicts.** Before creating new files or scripts, check for naming conflicts with existing project files and terminology.
+- **Validation is mandatory.** Every plan must include validation steps. Executing validation is part of completing the work — not optional. If validation fails, continue fixing until it passes or you are genuinely blocked. When finished, report: (1) what was done, (2) how validation was performed, (3) validation results.
