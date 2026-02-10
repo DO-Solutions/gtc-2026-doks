@@ -779,7 +779,7 @@ Stand up the cluster, install the platform stack, and validate the core inferenc
 **Build from these specs:**
 - Repository Structure (for directory layout)
 - Makefile Targets (for target signatures and comments)
-- Secrets Management (for `.env.example` and `check-env` logic)
+- Secrets Management (`check-env` logic)
 - Infrastructure Specifications → Stack 1 and Stack 2 (for Terraform files)
 - Environment Configurations (for `dev.tfvars` and `prod.tfvars`)
 

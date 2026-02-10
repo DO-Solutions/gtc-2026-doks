@@ -43,6 +43,7 @@ infra-plan: check-env ## Plan infra changes
 	terraform -chdir=$(TF_INFRA) plan $(TF_VARS)
 
 infra-up: check-env ## Apply infra stack + save kubeconfig
+	terraform -chdir=$(TF_INFRA) init -input=false
 	terraform -chdir=$(TF_INFRA) apply $(TF_VARS) -auto-approve
 	doctl kubernetes cluster kubeconfig save gtc-demo --context solutions
 

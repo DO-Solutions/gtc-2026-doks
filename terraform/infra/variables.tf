@@ -65,9 +65,3 @@ variable "management_node_pool_max_nodes" {
   default     = 5
   description = "Maximum number of nodes in management node pool"
 }
-
-variable "registry_name" {
-  type        = string
-  default     = "do-solutions-sfo3"
-  description = "Name of the DigitalOcean container registry for registry integration"
-}

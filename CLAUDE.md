@@ -140,7 +140,8 @@ For unattended periods, a scenario controller cycles through the above phases au
 
 - **Terraform state:** Local (terraform.tfstate in each stack directory).
 - **Env sourcing:** Manual — run `source /home/jjk3/env/gtc.env` before make/terraform. Makefile's `check-env` target validates required vars are set.
-- **Kubeconfig:** After cluster creation, save via `doctl kubernetes cluster kubeconfig save gtc-demo --context solutions`. kubectl context: `do-atl1-gtc-demo`.
+- **Kubeconfig:** After cluster creation, save via `doctl kubernetes cluster kubeconfig save gtc-demo --context solutions`. kubectl context: `do-nyc2-gtc-demo`.
+- **GPU node readiness:** After `make infra-up`, GPU nodes take time to become Ready. Run `scripts/wait-for-gpu.sh [count] [timeout]` to poll (defaults: 3 nodes, 900s).
 - **Image tagging:** `TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)` — date prefix + short git SHA (e.g., `20260210-a1b2c3d`).
 
 ## Rules
