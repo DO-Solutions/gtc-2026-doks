@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-upload-spaces-${MODEL_SLUG}
+  namespace: dynamo-workload
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: upload
+          image: python:3.11-slim
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+
+              pip install huggingface-hub awscli
+              export PATH="/usr/local/bin:$PATH"
+              hash -r
+
+              BUCKET="do-gtc2026-doks-demo"
+              S3_PREFIX="models/${MODEL}"
+              SENTINEL="${S3_PREFIX}/.upload-complete"
+
+              echo "Checking for existing upload sentinel..."
+              if aws s3api head-object \
+                --bucket "${BUCKET}" \
+                --key "${SENTINEL}" \
+                --endpoint-url "${ENDPOINT}" 2>/dev/null; then
+                echo "Upload already complete (sentinel found). Skipping."
+                exit 0
+              fi
+
+              echo "Downloading ${MODEL} from HuggingFace..."
+              python3 -c "
+              from huggingface_hub import snapshot_download
+              snapshot_download('${MODEL}', local_dir='/tmp/model')
+              "
+
+              echo "Uploading to s3://${BUCKET}/${S3_PREFIX}/..."
+              aws s3 sync /tmp/model "s3://${BUCKET}/${S3_PREFIX}/" \
+                --endpoint-url "${ENDPOINT}"
+
+              echo "Writing upload sentinel..."
+              echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | aws s3 cp - \
+                "s3://${BUCKET}/${SENTINEL}" \
+                --endpoint-url "${ENDPOINT}"
+
+              echo "Upload complete."
+          env:
+            - name: MODEL
+              value: "${MODEL}"
+            - name: ENDPOINT
+              value: "https://atl1.digitaloceanspaces.com"
+            - name: AWS_DEFAULT_REGION
+              value: "atl1"
+          envFrom:
+            - secretRef:
+                name: hf-token
+            - secretRef:
+                name: spaces-credentials
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              cpu: "2"
+              memory: 8Gi

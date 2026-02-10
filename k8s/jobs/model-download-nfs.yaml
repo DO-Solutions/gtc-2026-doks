@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-download-nfs-${MODEL_SLUG}
+  namespace: dynamo-workload
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      volumes:
+        - name: nfs
+          persistentVolumeClaim:
+            claimName: model-nfs-pvc
+      containers:
+        - name: download
+          image: python:3.11-slim
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+
+              pip install awscli
+              export PATH="/usr/local/bin:$PATH"
+              hash -r
+
+              # Limit concurrent downloads to reduce NFS write buffer pressure
+              aws configure set default.s3.max_concurrent_requests 4
+
+              BUCKET="do-gtc2026-doks-demo"
+              S3_PREFIX="models/${MODEL}"
+              NFS_DIR="/models/${MODEL}"
+              SENTINEL="${NFS_DIR}/.download-complete"
+
+              echo "Checking for existing download sentinel..."
+              if [ -f "${SENTINEL}" ]; then
+                echo "Download already complete (sentinel found). Skipping."
+                exit 0
+              fi
+
+              mkdir -p "${NFS_DIR}"
+
+              echo "Downloading from s3://${BUCKET}/${S3_PREFIX}/ to ${NFS_DIR}/..."
+              aws s3 sync "s3://${BUCKET}/${S3_PREFIX}/" "${NFS_DIR}/" \
+                --endpoint-url "${ENDPOINT}"
+
+              echo "Writing download sentinel..."
+              date -u +%Y-%m-%dT%H:%M:%SZ > "${SENTINEL}"
+
+              echo "Download complete."
+          env:
+            - name: MODEL
+              value: "${MODEL}"
+            - name: ENDPOINT
+              value: "https://atl1.digitaloceanspaces.com"
+            - name: AWS_DEFAULT_REGION
+              value: "atl1"
+          envFrom:
+            - secretRef:
+                name: spaces-credentials
+          volumeMounts:
+            - name: nfs
+              mountPath: /models
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              cpu: "2"
+              memory: 64Gi

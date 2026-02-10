@@ -10,6 +10,10 @@ TF_INFRA  := terraform/infra
 TF_CLUSTER := terraform/cluster-config
 TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
+MODEL     ?= meta-llama/Llama-3.1-8B-Instruct
+MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
+CONTEXT   ?= do-nyc2-gtc-demo
+
 # Pass secrets to Terraform as TF_VAR_* env vars
 export TF_VAR_hf_token              := $(HF_TOKEN)
 export TF_VAR_spaces_access_key_id  := $(SPACES_ACCESS_KEY_ID)
@@ -75,14 +79,18 @@ clean: ## Remove Terraform local state and caches
 
 # --- Model Management (TODO) ---
 
-model-to-spaces: ## Download model to Spaces bucket
-	@echo "TODO: Implement model-to-spaces"
+model-to-spaces: check-env ## Download model to Spaces bucket
+	kubectl --context $(CONTEXT) delete job model-upload-spaces-$(MODEL_SLUG) -n dynamo-workload --ignore-not-found=true
+	MODEL=$(MODEL) MODEL_SLUG=$(MODEL_SLUG) envsubst '$${MODEL} $${MODEL_SLUG}' < k8s/jobs/model-upload-spaces.yaml | kubectl --context $(CONTEXT) apply -f -
+	kubectl --context $(CONTEXT) wait --for=condition=complete --timeout=1800s job/model-upload-spaces-$(MODEL_SLUG) -n dynamo-workload
 
-model-to-nfs: ## Copy model from Spaces to NFS
-	@echo "TODO: Implement model-to-nfs"
+model-to-nfs: check-env ## Copy model from Spaces to NFS
+	kubectl --context $(CONTEXT) delete job model-download-nfs-$(MODEL_SLUG) -n dynamo-workload --ignore-not-found=true
+	MODEL=$(MODEL) MODEL_SLUG=$(MODEL_SLUG) envsubst '$${MODEL} $${MODEL_SLUG}' < k8s/jobs/model-download-nfs.yaml | kubectl --context $(CONTEXT) apply -f -
+	kubectl --context $(CONTEXT) wait --for=condition=complete --timeout=1800s job/model-download-nfs-$(MODEL_SLUG) -n dynamo-workload
 
-setup-model: ## Full model setup (Spaces + NFS)
-	@echo "TODO: Implement setup-model"
+setup-model: check-env ## Full model setup (Spaces + NFS)
+	MODEL=$(MODEL) scripts/setup-model.sh
 
 # --- Container Images (TODO) ---
 
