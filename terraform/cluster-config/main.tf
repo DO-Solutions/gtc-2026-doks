@@ -88,6 +88,7 @@ resource "kubernetes_persistent_volume_v1" "model_nfs" {
     access_modes                     = ["ReadWriteMany"]
     persistent_volume_reclaim_policy = "Retain"
     storage_class_name               = ""
+    mount_options                    = ["nfsvers=4.1", "nconnect=16"]
     persistent_volume_source {
       nfs {
         server = local.nfs_host
@@ -113,6 +114,97 @@ resource "kubernetes_persistent_volume_claim_v1" "model_nfs" {
     selector {
       match_labels = {
         type = "model-nfs"
+      }
+    }
+  }
+}
+
+# --- GPU Network Tuner DaemonSet ---
+
+resource "kubernetes_daemon_set_v1" "gpu_network_tuner" {
+  metadata {
+    name      = "gpu-network-tuner"
+    namespace = "kube-system"
+    labels = {
+      app = "gpu-network-tuner"
+    }
+  }
+
+  spec {
+    selector {
+      match_labels = {
+        app = "gpu-network-tuner"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "gpu-network-tuner"
+        }
+      }
+
+      spec {
+        host_network = true
+        host_pid     = true
+
+        affinity {
+          node_affinity {
+            required_during_scheduling_ignored_during_execution {
+              node_selector_term {
+                match_expressions {
+                  key      = "doks.digitalocean.com/gpu-brand"
+                  operator = "In"
+                  values   = ["nvidia"]
+                }
+              }
+            }
+          }
+        }
+
+        toleration {
+          key      = "nvidia.com/gpu"
+          operator = "Exists"
+          effect   = "NoSchedule"
+        }
+
+        init_container {
+          name  = "sysctl-tuner"
+          image = "busybox:1.36"
+
+          command = ["/bin/sh", "-c"]
+          args = [
+            <<-EOT
+            sysctl -w net.core.rmem_max=16777216 && \
+            sysctl -w net.core.wmem_max=16777216 && \
+            sysctl -w net.ipv4.tcp_rmem="4096 87380 16777216" && \
+            sysctl -w net.ipv4.tcp_wmem="4096 65536 16777216" && \
+            ip link set eth1 mtu 9000
+            EOT
+          ]
+
+          security_context {
+            privileged = true
+          }
+        }
+
+        container {
+          name  = "pause"
+          image = "busybox:1.36"
+
+          command = ["/bin/sh", "-c", "sleep infinity"]
+
+          resources {
+            requests = {
+              cpu    = "1m"
+              memory = "1Mi"
+            }
+            limits = {
+              cpu    = "1m"
+              memory = "1Mi"
+            }
+          }
+        }
       }
     }
   }
