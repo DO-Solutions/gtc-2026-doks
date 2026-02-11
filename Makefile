@@ -116,7 +116,6 @@ build-push-all: build-all push-all ## Build and push all images
 
 deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
-	kubectl --context $(CONTEXT) apply -f k8s/dynamo/engine-configmap-$(ENV).yaml
 	kubectl --context $(CONTEXT) apply -f k8s/dynamo/$(ENV)-disagg.yaml
 	scripts/wait-for-dynamo.sh
 
