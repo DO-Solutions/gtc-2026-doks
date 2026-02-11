@@ -939,6 +939,61 @@ Available for fixes and polish. No 8xH200 needed unless rework required.
 
 ---
 
+## Dev vs Prod Tuning Notes
+
+Parameters tuned for dev (3x single H100, 8B model) that **must be re-evaluated** for prod (1x 8xH200, 70B model). Dev values are for functional validation only.
+
+### TRT-LLM Engine Parameters
+
+| Parameter | Dev Value | Prod Expectation | Why |
+|-----------|-----------|-------------------|-----|
+| `max_batch_size` | 16 (prefill + decode) | 64+ for decode, 32+ for prefill | Dev reduced from 64→16 to fix NIXL buffer errors on single H100 (80GB). H200 has 141GB HBM3e and NVLink for KV transfer — much more buffer headroom. |
+| `max_tokens_in_buffer` | 8192 | May need increase (16384+) | Must be >= `max_num_tokens`. With larger batch sizes in prod, buffer pressure increases — monitor for `Agent need buffer pre-allocated` errors. |
+| `free_gpu_memory_fraction` | 0.85 | 0.90+ possible | H200 has ~141GB vs H100's ~80GB. More VRAM headroom allows higher fraction without OOM risk. Profile under load before increasing. |
+| `max_num_tokens` | 8192 | 8192–16384 | May increase for prod to handle longer sequences with 70B model. Must stay <= `max_tokens_in_buffer`. |
+
+### NIXL Transport
+
+| Aspect | Dev | Prod |
+|--------|-----|------|
+| Transport | UCX over TCP (between nodes) | NVLink (within single 8xH200 node) |
+| KV transfer latency | ~ms (network-bound) | ~us (NVLink-bound) |
+| Saturation point | Lower — network is the bottleneck | Much higher — NVLink provides 900 GB/s per link |
+| Implications | TTFT/ITL degrade sooner under load | Can handle higher concurrency before degradation; stress test durations may need to be longer to observe meaningful metric movement |
+
+### KEDA Thresholds
+
+| Metric | Dev Value | Prod Notes |
+|--------|-----------|------------|
+| TTFT p95 threshold | 500ms | 8B model on H100 saturates quickly. 70B on H200 will have higher baseline TTFT — threshold likely needs to be 1-2s. Profile under load. |
+| TTFT activation threshold | 100ms | Scale proportionally with threshold. |
+| ITL p95 threshold | 50ms | 70B model generates tokens more slowly. Baseline ITL will be higher — threshold likely 100-200ms. |
+| ITL activation threshold | 10ms | Scale proportionally with threshold. |
+| `pollingInterval` | 15s | May keep or reduce to 10s for faster reaction in demo. |
+| `cooldownPeriod` | 60s | May reduce for demo responsiveness. |
+
+### Auto Mode Timing
+
+| Phase | Dev Duration | Prod Notes |
+|-------|-------------|------------|
+| BALANCED | 2 min | May keep — baseline observation period |
+| KV_CACHE_DEMO | 2 min | May extend — cache hit rate builds more slowly with 70B model (larger KV cache per token) |
+| PREFILL_STRESS | 1.5 min | May need adjustment — NVLink means system absorbs more prefill load before degrading visibly |
+| PREFILL_RECOVERY | 1.5 min | Recovery is faster (same-node scaling) — may reduce |
+| DECODE_STRESS | 1.5 min | Same NVLink consideration — may need more load to create visible degradation |
+| DECODE_RECOVERY | 1.5 min | Same-node scaling — recovery may be faster |
+| FULL_LOAD | 2 min | May keep |
+| COOLDOWN | 1 min | May keep |
+
+**Total cycle target:** Still ~13 min, but phase distribution will shift based on how quickly metrics move on prod hardware.
+
+### Known Dev Workarounds (Remove for Prod)
+
+- **Decode `max_batch_size: 16`** — artificially low due to H100 memory constraints. Restore to 64+ on H200.
+- **KEDA thresholds** — set conservatively for dev 8B latencies. Will underscale on prod 70B.
+
+---
+
 ## References
 
 - Dynamo autoscaling docs: https://docs.nvidia.com/dynamo/latest/kubernetes/autoscaling.html

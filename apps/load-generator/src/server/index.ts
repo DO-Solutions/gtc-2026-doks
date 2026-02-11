@@ -33,6 +33,24 @@ app.use(express.json());
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
+wss.on('connection', (ws) => {
+  // Send current running state to newly connected client
+  const stateMsg: WSMessage = {
+    type: 'state_change',
+    data: {
+      running: scheduler?.running ?? false,
+      config: scheduler?.currentConfig ?? undefined,
+    },
+  };
+  ws.send(JSON.stringify(stateMsg));
+
+  // Send current scenario state if auto mode is active
+  const scenarioState = scenario.getState();
+  if (scenarioState) {
+    ws.send(JSON.stringify({ type: 'scenario_state', data: scenarioState }));
+  }
+});
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
