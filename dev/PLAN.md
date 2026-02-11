@@ -126,11 +126,12 @@ gtc-demo/
 │   │       ├── deployment.yaml       # Image: registry.digitalocean.com/do-solutions-sfo3/gtc-demo-loadgen:$(TAG)
 │   │       └── service.yaml
 │   │
-│   └── corpus-curator/               # Document corpus preparation
-│       ├── Dockerfile
-│       ├── curate.py                 # Download, clean, tokenize, upload to Spaces
+│   └── corpus-curator/               # Document corpus preparation (local script, not containerized)
+│       ├── curate.py                 # Fetch, clean, upload to Spaces
+│       ├── requirements.txt          # boto3, requests
 │       └── prompts/
-│           └── reasoning-prompts.json # Workload C prompt bank
+│           ├── chat_passages.json    # Workload A passage bank (bundled)
+│           └── reasoning.json        # Workload C prompt bank
 │
 ├── scripts/                          # Helper scripts called by Make
 │   ├── check-env.sh                  # Validate required env vars are set
@@ -185,10 +186,8 @@ setup-model         # Runs model-to-spaces then model-to-nfs
 # Container Images (registry: registry.digitalocean.com/do-solutions-sfo3)
 # ============================================================
 build-loadgen       # docker build apps/load-generator → registry.digitalocean.com/do-solutions-sfo3/gtc-demo-loadgen:$(TAG)
-build-curator       # docker build apps/corpus-curator → registry.digitalocean.com/do-solutions-sfo3/gtc-demo-curator:$(TAG)
 build-all           # Build all container images
 push-loadgen        # docker push gtc-demo-loadgen:$(TAG)
-push-curator        # docker push gtc-demo-curator:$(TAG)
 push-all            # Push all container images
 build-push-all      # Build + push all images
 
@@ -198,7 +197,7 @@ build-push-all      # Build + push all images
 deploy-dynamo       # kubectl apply DynamoGraphDeployment CR (dev or prod based on ENV)
 deploy-keda         # kubectl apply ScaledObjects (depends on DGDSA names from DGD)
 deploy-loadgen      # Build, push, and deploy load generator to cluster (depends on build-push-loadgen)
-deploy-corpus       # Run corpus curator, upload to Spaces
+deploy-corpus       # Run corpus curator locally (pip install + python3), upload to Spaces
 deploy-apps         # All of the above
 
 # ============================================================
@@ -360,7 +359,7 @@ make setup-model
   → Job 2: Spaces → NFS
       ↓
 make build-push-all
-  → Build + push load generator and corpus curator images to do-solutions-sfo3
+  → Build + push load generator image to do-solutions-sfo3
       ↓
 make deploy-apps
   → DynamoGraphDeployment CR
@@ -625,7 +624,7 @@ Curated from public domain / CC-licensed sources, organized by token length for 
 
 | Workload | Source | Why | Count |
 |----------|--------|-----|-------|
-| **Workload A (Chat)** | Wikipedia "Good Articles" — technology, science, history sections | Diverse topics that generate natural follow-up questions from the 8B broker model | 50-100 passages, each 500-2k tokens |
+| **Workload A (Chat)** | Bundled technology/science passages (GPU architecture, LLMs, Kubernetes, disaggregated inference, etc.) | Diverse topics that generate natural follow-up questions from the 8B broker model | 10 passages (dev), 50-100 passages (prod), each 250-500 tokens |
 | **Workload B (Summarization)** | arXiv paper abstracts + intros (CS, physics), Project Gutenberg chapter excerpts, SEC 10-K filing excerpts (public) | Long-form content with clear summarizable structure | 30-50 documents across `/short/`, `/medium/`, `/long/` buckets |
 | **Workload C (Reasoning)** | Prompt bank (no documents needed) — "Explain X step by step", "Write a detailed implementation of Y", "Compare A and B" | Short prompts that elicit long decode sequences | 50-100 prompts stored as JSON |
 
@@ -633,14 +632,17 @@ Curated from public domain / CC-licensed sources, organized by token length for 
 
 ```
 s3://do-gtc2026-doks-demo/
-├── chat/                    # Workload A passages
-│   ├── passages.jsonl       # {id, text, topic, token_count}
-├── summarization/           # Workload B documents
-│   ├── short/               # 1-5k tokens
-│   ├── medium/              # 5-15k tokens
-│   └── long/                # 15-30k tokens
-└── reasoning/               # Workload C prompts
-    └── prompts.jsonl        # {id, prompt, expected_output_length}
+├── models/                          # Model files (from setup-model)
+└── corpus/                          # Demo corpus (from deploy-corpus)
+    ├── .curator-complete            # Sentinel for idempotency
+    ├── chat/
+    │   └── passages.jsonl           # {id, text, topic, token_count}
+    ├── summarization/
+    │   ├── short/docs.jsonl         # ~4k tokens each
+    │   ├── medium/docs.jsonl        # ~10k tokens each
+    │   └── long/docs.jsonl          # ~18k tokens each
+    └── reasoning/
+        └── prompts.jsonl            # {id, prompt, category, expected_output_length, prompt_token_count}
 ```
 
 For Phase 1–2 dev, a smaller subset (10 chat passages, 10 docs, 20 prompts) is sufficient. Full corpus curation happens in parallel.
@@ -835,9 +837,9 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 **Build from these specs:**
 - Document Corpus (for Spaces bucket structure, data formats, and source material)
 - Repository Structure → `apps/corpus-curator/` (for file layout)
-- Makefile Targets → `build-curator`, `push-curator`, `deploy-corpus`
+- Makefile Targets → `deploy-corpus`
 
-**Notes:** Build the corpus curator as a Python script (`apps/corpus-curator/curate.py`) that downloads, cleans, and uploads documents to the `do-gtc2026-doks-demo` Spaces bucket following the defined structure (chat/passages.jsonl, summarization/short|medium|long/, reasoning/prompts.jsonl). For the dev subset, Wikipedia passages for chat, Project Gutenberg excerpts for summarization, and a hand-crafted prompt bank for reasoning are sufficient. The Dockerfile should package the curator for running as a K8s Job. Validate by checking the Spaces bucket contains the expected files.
+**Notes:** The corpus curator is a local Python script (`apps/corpus-curator/curate.py`), not a containerized K8s Job. It loads bundled chat passages and reasoning prompts from `prompts/`, fetches summarization docs from Project Gutenberg, and uploads everything to the `do-gtc2026-doks-demo` Spaces bucket under the `corpus/` prefix (chat/passages.jsonl, summarization/short|medium|long/docs.jsonl, reasoning/prompts.jsonl). Idempotent via a `.curator-complete` sentinel object; `--force` flag bypasses. `make deploy-corpus` installs deps and runs the script locally. Validate by checking the Spaces bucket contains the expected files.
 
 #### Phase 2b: Load Gen Backend
 

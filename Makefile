@@ -25,7 +25,7 @@ export TF_VAR_gradient_api_key      := $(GRADIENT_API_KEY)
 	cluster-config cluster-teardown \
 	deploy teardown clean \
 	model-to-spaces model-to-nfs setup-model \
-	build-loadgen build-curator build-all push-loadgen push-curator push-all build-push-all \
+	build-loadgen build-all push-loadgen push-all build-push-all \
 	deploy-dynamo deploy-keda deploy-loadgen deploy-corpus deploy-apps \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-disagg test-kv-cache test-scaling validate-all
@@ -97,18 +97,12 @@ setup-model: check-env ## Full model setup (Spaces + NFS)
 build-loadgen: ## Build load generator image
 	@echo "TODO: Implement build-loadgen"
 
-build-curator: ## Build corpus curator image
-	@echo "TODO: Implement build-curator"
-
-build-all: build-loadgen build-curator ## Build all images
+build-all: build-loadgen ## Build all images
 
 push-loadgen: ## Push load generator image
 	@echo "TODO: Implement push-loadgen"
 
-push-curator: ## Push corpus curator image
-	@echo "TODO: Implement push-curator"
-
-push-all: push-loadgen push-curator ## Push all images
+push-all: push-loadgen ## Push all images
 
 build-push-all: build-all push-all ## Build and push all images
 
@@ -125,8 +119,9 @@ deploy-keda: ## Deploy KEDA ScaledObjects
 deploy-loadgen: ## Deploy load generator
 	@echo "TODO: Implement deploy-loadgen"
 
-deploy-corpus: ## Deploy corpus curator
-	@echo "TODO: Implement deploy-corpus"
+deploy-corpus: check-env ## Curate and upload corpus to Spaces
+	pip install -q -r apps/corpus-curator/requirements.txt
+	python3 apps/corpus-curator/curate.py
 
 deploy-apps: deploy-dynamo deploy-keda deploy-loadgen deploy-corpus ## Deploy all application workloads
 

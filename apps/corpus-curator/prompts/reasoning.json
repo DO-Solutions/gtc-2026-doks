@@ -1,0 +1,122 @@
+[
+  {
+    "id": "logic-01",
+    "category": "logical_mathematical",
+    "prompt": "A farmer has 100 meters of fencing and wants to enclose a rectangular area against a straight river bank, so only three sides need fencing. What dimensions maximize the enclosed area, and why does this shape emerge as optimal?",
+    "expected_output_length": 800
+  },
+  {
+    "id": "logic-02",
+    "category": "logical_mathematical",
+    "prompt": "Five pirates find 100 gold coins. They vote on how to split them, starting with the most senior pirate. If a proposal gets fewer than half the votes, that pirate is thrown overboard. What does the most senior pirate propose, assuming all pirates are perfectly rational and prefer survival above all?",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "logic-03",
+    "category": "logical_mathematical",
+    "prompt": "Explain why the sum of the first n odd numbers always equals n squared. Provide both an algebraic proof and an intuitive geometric explanation.",
+    "expected_output_length": 700
+  },
+  {
+    "id": "logic-04",
+    "category": "logical_mathematical",
+    "prompt": "You have 12 identical-looking balls, one of which is either heavier or lighter than the rest. Using a balance scale exactly three times, determine which ball is different and whether it is heavier or lighter. Walk through your complete strategy.",
+    "expected_output_length": 1500
+  },
+  {
+    "id": "science-01",
+    "category": "scientific_explanation",
+    "prompt": "Explain the greenhouse effect from first principles. Start with blackbody radiation, cover the role of molecular vibration modes in CO2 and water vapor, and explain why increasing CO2 concentration shifts the equilibrium temperature upward.",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "science-02",
+    "category": "scientific_explanation",
+    "prompt": "How do mRNA vaccines work? Explain the full chain from lipid nanoparticle delivery through ribosomal translation to immune response, including why the spike protein alone triggers immunity without causing disease.",
+    "expected_output_length": 1000
+  },
+  {
+    "id": "science-03",
+    "category": "scientific_explanation",
+    "prompt": "Describe the process of nuclear fusion in the Sun, from quantum tunneling in the proton-proton chain through energy transport to the surface. Why has controlled fusion on Earth proven so difficult despite decades of research?",
+    "expected_output_length": 1100
+  },
+  {
+    "id": "science-04",
+    "category": "scientific_explanation",
+    "prompt": "Explain how CRISPR-Cas9 gene editing works at a molecular level. Cover guide RNA design, the PAM sequence requirement, DNA cleavage, and the difference between NHEJ and HDR repair pathways. What are the main challenges for therapeutic applications?",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "ethics-01",
+    "category": "ethical_philosophical",
+    "prompt": "Analyze the trolley problem and its fat man variant. What do these thought experiments reveal about the tension between consequentialist and deontological moral reasoning? Are there situations where most people's moral intuitions conflict with their stated ethical frameworks?",
+    "expected_output_length": 1000
+  },
+  {
+    "id": "ethics-02",
+    "category": "ethical_philosophical",
+    "prompt": "Should advanced AI systems be granted any form of legal personhood or moral status? Examine arguments from consciousness, functional equivalence, and societal impact. Consider precedents from corporate personhood and animal rights law.",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "ethics-03",
+    "category": "ethical_philosophical",
+    "prompt": "Evaluate the philosophical implications of the simulation hypothesis. If we are likely living in a simulation, how should that affect our moral reasoning, scientific methodology, and understanding of consciousness?",
+    "expected_output_length": 1000
+  },
+  {
+    "id": "ethics-04",
+    "category": "ethical_philosophical",
+    "prompt": "Discuss the ethics of genetic enhancement in humans. Where should we draw the line between treating disease and enhancing capabilities? Consider arguments about equality of access, informed consent for future generations, and the naturalistic fallacy.",
+    "expected_output_length": 1100
+  },
+  {
+    "id": "systems-01",
+    "category": "systems_engineering",
+    "prompt": "Design a distributed rate limiter for a global API serving 10 million requests per second across 20 data centers. Discuss the trade-offs between token bucket and sliding window approaches, consistency vs availability in rate counting, and how to handle clock skew.",
+    "expected_output_length": 1500
+  },
+  {
+    "id": "systems-02",
+    "category": "systems_engineering",
+    "prompt": "Explain the CAP theorem with concrete examples. For each pair of properties (CP, AP, CA), name a real database system that makes that trade-off and explain why. Then discuss why the PACELC extension provides a more useful framework for system design.",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "systems-03",
+    "category": "systems_engineering",
+    "prompt": "How does TCP congestion control work? Explain slow start, congestion avoidance, fast retransmit, and fast recovery. Then compare Reno, CUBIC, and BBR in terms of their approach to estimating available bandwidth and their fairness properties.",
+    "expected_output_length": 1400
+  },
+  {
+    "id": "systems-04",
+    "category": "systems_engineering",
+    "prompt": "Design a write-ahead log for a database that must guarantee durability and support point-in-time recovery. Cover the log record format, checkpoint strategy, recovery algorithm, and how to handle the trade-off between log flush frequency and write throughput.",
+    "expected_output_length": 1300
+  },
+  {
+    "id": "creative-01",
+    "category": "creative_problem_solving",
+    "prompt": "A city wants to reduce traffic congestion by 30% without building new roads. Propose three unconventional solutions that don't involve congestion pricing or public transit expansion. For each, explain the behavioral economics principle it leverages and potential unintended consequences.",
+    "expected_output_length": 1200
+  },
+  {
+    "id": "creative-02",
+    "category": "creative_problem_solving",
+    "prompt": "Design a board game that teaches players about climate change feedback loops. The game should be playable in under 60 minutes, support 2-4 players, and make the interconnected nature of climate systems intuitive without requiring scientific background. Describe the core mechanics, win condition, and how feedback loops manifest in gameplay.",
+    "expected_output_length": 1500
+  },
+  {
+    "id": "creative-03",
+    "category": "creative_problem_solving",
+    "prompt": "A hospital emergency department has an average wait time of 4 hours. Using systems thinking and constraint theory, identify the likely bottlenecks and propose a redesigned patient flow that could cut wait times in half. Consider triage, diagnostic testing, specialist consultation, and discharge processes.",
+    "expected_output_length": 1300
+  },
+  {
+    "id": "creative-04",
+    "category": "creative_problem_solving",
+    "prompt": "Imagine you need to explain the concept of recursion to someone who has never programmed. Design three increasingly sophisticated analogies drawn from everyday life, then explain why recursion requires a base case using one of your analogies. Finally, discuss a scenario where iterative thinking fails but recursive thinking provides an elegant solution.",
+    "expected_output_length": 1100
+  }
+]
