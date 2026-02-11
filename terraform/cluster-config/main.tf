@@ -450,7 +450,7 @@ resource "kubernetes_config_map_v1" "grafana_dynamo_dashboard" {
     }
   }
   data = {
-    "dynamo-dashboard.json" = "{}"
+    "dynamo-dashboard.json" = file("${path.module}/dashboards/dynamo-overview.json")
   }
 }
 
@@ -463,7 +463,7 @@ resource "kubernetes_config_map_v1" "grafana_kvbm_dashboard" {
     }
   }
   data = {
-    "kvbm-dashboard.json" = "{}"
+    "kvbm-dashboard.json" = file("${path.module}/dashboards/kvbm.json")
   }
 }
 
@@ -476,6 +476,6 @@ resource "kubernetes_config_map_v1" "grafana_demo_dashboard" {
     }
   }
   data = {
-    "demo-dashboard.json" = "{}"
+    "demo-dashboard.json" = file("${path.module}/dashboards/demo.json")
   }
 }

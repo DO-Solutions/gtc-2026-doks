@@ -168,11 +168,16 @@ demo-stop: ## Stop demo (scale down load)
 demo-reset: ## Reset demo to baseline state
 	@echo "TODO: Implement demo-reset"
 
-demo-dashboard: ## Open Grafana dashboard
-	@echo "TODO: Implement demo-dashboard"
+demo-dashboard: ## Port-forward Grafana (http://localhost:3001)
+	@echo "Grafana available at http://localhost:3001"
+	@echo "User: admin"
+	@echo "Password: $$(kubectl --context $(CONTEXT) get secret kube-prometheus-stack-grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d)"
+	@echo "Dashboards: Dynamo Overview, Dynamo KV Block Manager, GTC Demo"
+	kubectl --context $(CONTEXT) port-forward svc/kube-prometheus-stack-grafana 3001:80 -n monitoring
 
-demo-ui: ## Open load generator UI
-	@echo "TODO: Implement demo-ui"
+demo-ui: ## Port-forward load generator UI (http://localhost:3000)
+	@echo "Load generator UI available at http://localhost:3000"
+	kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload
 
 # --- Validation (TODO) ---
 
