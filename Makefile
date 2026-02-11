@@ -114,8 +114,11 @@ build-push-all: build-all push-all ## Build and push all images
 
 # --- Application Deployment (TODO) ---
 
-deploy-dynamo: ## Deploy Dynamo DGD workloads
-	@echo "TODO: Implement deploy-dynamo"
+deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
+	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/engine-configmap-$(ENV).yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/$(ENV)-disagg.yaml
+	scripts/wait-for-dynamo.sh
 
 deploy-keda: ## Deploy KEDA ScaledObjects
 	@echo "TODO: Implement deploy-keda"
@@ -131,7 +134,11 @@ deploy-apps: deploy-dynamo deploy-keda deploy-loadgen deploy-corpus ## Deploy al
 # --- Demo Control (TODO) ---
 
 demo-status: ## Show demo status (pods, scaling, metrics)
-	@echo "TODO: Implement demo-status"
+	@echo "=== Nodes ==="
+	@kubectl --context $(CONTEXT) get nodes -o wide
+	@echo ""
+	@echo "=== DGD, DGDSA, Pods, PVC (dynamo-workload) ==="
+	@kubectl --context $(CONTEXT) get dgd,dgdsa,pods,pvc -n dynamo-workload
 
 demo-start: ## Start demo in manual mode
 	@echo "TODO: Implement demo-start"
@@ -154,7 +161,17 @@ demo-ui: ## Open load generator UI
 # --- Validation (TODO) ---
 
 test-inference: ## Test basic inference endpoint
-	@echo "TODO: Implement test-inference"
+	@echo "Finding Dynamo frontend pod..."
+	$(eval FRONTEND_POD := $(shell kubectl --context $(CONTEXT) get pods -n dynamo-workload -l nvidia.com/dynamo-graph-deployment-name=gtc-demo,nvidia.com/dynamo-component-type=frontend -o jsonpath='{.items[0].metadata.name}'))
+	@if [ -z "$(FRONTEND_POD)" ]; then echo "ERROR: No frontend pod found"; exit 1; fi
+	@echo "Port-forwarding to $(FRONTEND_POD)..."
+	@kubectl --context $(CONTEXT) port-forward pod/$(FRONTEND_POD) 8000:8000 -n dynamo-workload &
+	@sleep 3
+	@echo "Sending test request..."
+	@curl -s --max-time 60 http://localhost:8000/v1/chat/completions \
+		-H "Content-Type: application/json" \
+		-d '{"model":"/models/$(MODEL)","messages":[{"role":"user","content":"Say hello in one sentence."}],"max_tokens":50}' | python3 -m json.tool
+	@kill %1 2>/dev/null || true
 
 test-disagg: ## Test disaggregated routing
 	@echo "TODO: Implement test-disagg"

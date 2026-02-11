@@ -189,6 +189,143 @@ resource "kubernetes_daemon_set_v1" "gpu_network_tuner" {
   }
 }
 
+# --- CUDA 13.0 Forward Compatibility ---
+# The tensorrtllm-runtime:0.8.1 image requires CUDA 13.0, but DOKS GPU nodes
+# ship with driver 575.x (CUDA 12.9). Install the cuda-compat-13-0 package
+# on each GPU node so the nvidia-container-toolkit injects the forward-
+# compatible libcuda into new containers.
+
+resource "kubernetes_daemon_set_v1" "cuda_compat" {
+  metadata {
+    name      = "cuda-compat-upgrade"
+    namespace = "kube-system"
+    labels = {
+      app = "cuda-compat-upgrade"
+    }
+  }
+
+  spec {
+    selector {
+      match_labels = {
+        app = "cuda-compat-upgrade"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "cuda-compat-upgrade"
+        }
+      }
+
+      spec {
+        host_network = true
+        host_pid     = true
+
+        affinity {
+          node_affinity {
+            required_during_scheduling_ignored_during_execution {
+              node_selector_term {
+                match_expressions {
+                  key      = "doks.digitalocean.com/gpu-brand"
+                  operator = "In"
+                  values   = ["nvidia"]
+                }
+              }
+            }
+          }
+        }
+
+        toleration {
+          key      = "nvidia.com/gpu"
+          operator = "Exists"
+          effect   = "NoSchedule"
+        }
+
+        init_container {
+          name  = "install-cuda-compat"
+          image = "busybox:1.36"
+
+          command = ["/bin/sh", "-c"]
+          args = [
+            <<-EOT
+            set -e
+            # Skip if already installed
+            if [ -d /host/usr/local/cuda-13.0/compat ]; then
+              echo "CUDA 13.0 compat already installed, skipping"
+              exit 0
+            fi
+            echo "Installing CUDA 13.0 forward compatibility package..."
+            chroot /host bash -c '
+              . /etc/os-release
+              UBUNTU_VER=$$(echo $$VERSION_ID | tr -d ".")
+              REPO_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$${UBUNTU_VER}/x86_64"
+              # Add NVIDIA CUDA repo if cuda-compat package is not available
+              if ! apt-cache showpkg cuda-compat-13-0 2>/dev/null | grep -q "Versions:"; then
+                apt-get update -qq
+                apt-get install -y -qq wget
+                wget -qO /tmp/cuda-keyring.deb "$${REPO_URL}/cuda-keyring_1.1-1_all.deb"
+                dpkg -i /tmp/cuda-keyring.deb
+                rm -f /tmp/cuda-keyring.deb
+                apt-get update -qq
+              fi
+              apt-get install -y -qq --no-install-recommends cuda-compat-13-0
+              ldconfig
+            '
+            echo "CUDA 13.0 compat installed successfully"
+            EOT
+          ]
+
+          security_context {
+            privileged = true
+          }
+
+          volume_mount {
+            name       = "host-root"
+            mount_path = "/host"
+          }
+
+          resources {
+            requests = {
+              cpu    = "100m"
+              memory = "128Mi"
+            }
+            limits = {
+              cpu    = "1"
+              memory = "512Mi"
+            }
+          }
+        }
+
+        container {
+          name  = "pause"
+          image = "busybox:1.36"
+
+          command = ["/bin/sh", "-c", "sleep infinity"]
+
+          resources {
+            requests = {
+              cpu    = "1m"
+              memory = "16Mi"
+            }
+            limits = {
+              cpu    = "10m"
+              memory = "16Mi"
+            }
+          }
+        }
+
+        volume {
+          name = "host-root"
+          host_path {
+            path = "/"
+          }
+        }
+      }
+    }
+  }
+}
+
 # --- Helm Releases ---
 
 # 1. Dynamo CRDs

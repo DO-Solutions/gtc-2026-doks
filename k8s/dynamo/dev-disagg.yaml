@@ -1,0 +1,134 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: gtc-demo
+  namespace: dynamo-workload
+spec:
+  backendFramework: trtllm
+  pvcs:
+    - name: model-nfs-pvc
+  envs:
+    - name: HF_HOME
+      value: "/models"
+  services:
+    Frontend:
+      dynamoNamespace: gtc-demo
+      componentType: frontend
+      replicas: 1
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      extraPodSpec:
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.8.1
+      envs:
+        - name: DYN_ROUTER_MODE
+          value: kv
+
+    TrtllmPrefillWorker:
+      dynamoNamespace: gtc-demo
+      componentType: worker
+      subComponentType: prefill
+      replicas: 1
+      scalingAdapter:
+        enabled: true
+      envFromSecret: hf-token
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      resources:
+        limits:
+          gpu: "1"
+      labels:
+        kai.scheduler/queue: default-queue
+      extraPodSpec:
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        volumes:
+          - name: cuda-compat
+            hostPath:
+              path: /usr/local/cuda-13.0/compat
+              type: Directory
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.8.1
+          command:
+            - bash
+            - -c
+            - export LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH && exec python3 -m dynamo.trtllm "$@"
+            - --
+          args:
+            - --model-path
+            - /models/meta-llama/Llama-3.1-8B-Instruct
+            - --disaggregation-mode
+            - prefill
+            - --tensor-parallel-size
+            - "1"
+            - --max-num-tokens
+            - "8192"
+            - --max-batch-size
+            - "16"
+            - --free-gpu-memory-fraction
+            - "0.85"
+            - --publish-events-and-metrics
+            - --override-engine-args
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL"}}'
+          volumeMounts:
+            - name: cuda-compat
+              mountPath: /usr/local/cuda/compat/lib.real
+              readOnly: true
+
+    TrtllmDecodeWorker:
+      dynamoNamespace: gtc-demo
+      componentType: worker
+      subComponentType: decode
+      replicas: 1
+      scalingAdapter:
+        enabled: true
+      envFromSecret: hf-token
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      resources:
+        limits:
+          gpu: "1"
+      labels:
+        kai.scheduler/queue: default-queue
+      extraPodSpec:
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        volumes:
+          - name: cuda-compat
+            hostPath:
+              path: /usr/local/cuda-13.0/compat
+              type: Directory
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.8.1
+          command:
+            - bash
+            - -c
+            - export LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH && exec python3 -m dynamo.trtllm "$@"
+            - --
+          args:
+            - --model-path
+            - /models/meta-llama/Llama-3.1-8B-Instruct
+            - --disaggregation-mode
+            - decode
+            - --tensor-parallel-size
+            - "1"
+            - --max-num-tokens
+            - "8192"
+            - --max-batch-size
+            - "64"
+            - --free-gpu-memory-fraction
+            - "0.85"
+            - --publish-events-and-metrics
+            - --override-engine-args
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL"}}'
+          volumeMounts:
+            - name: cuda-compat
+              mountPath: /usr/local/cuda/compat/lib.real
+              readOnly: true
