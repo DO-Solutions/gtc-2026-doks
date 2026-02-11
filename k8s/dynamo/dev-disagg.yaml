@@ -73,7 +73,7 @@ spec:
             - "0.85"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL"}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":8192}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real
@@ -127,7 +127,7 @@ spec:
             - "0.85"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL"}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":8192}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real
