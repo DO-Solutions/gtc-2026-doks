@@ -114,7 +114,11 @@ deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	scripts/wait-for-dynamo.sh
 
 deploy-keda: ## Deploy KEDA ScaledObjects
-	@echo "TODO: Implement deploy-keda"
+	kubectl --context $(CONTEXT) apply -f k8s/keda/prefill-scaler.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/keda/decode-scaler.yaml
+	@echo "Waiting for ScaledObjects to become ready..."
+	@sleep 5
+	@kubectl --context $(CONTEXT) get scaledobjects -n dynamo-workload
 
 deploy-loadgen: ## Deploy load generator
 	sed 's|TAG_PLACEHOLDER|$(TAG)|g; s|MODEL_PLACEHOLDER|/models/$(MODEL)|g' \
@@ -192,6 +196,14 @@ test-kv-cache: ## Test KV cache hit behavior
 	@echo "TODO: Implement test-kv-cache"
 
 test-scaling: ## Test KEDA scaling triggers
-	@echo "TODO: Implement test-scaling"
+	@echo "=== ScaledObjects ==="
+	@kubectl --context $(CONTEXT) get scaledobjects -n dynamo-workload -o wide
+	@echo ""
+	@echo "=== DGDSA Status ==="
+	@kubectl --context $(CONTEXT) get dgdsa -n dynamo-workload
+	@echo ""
+	@echo "=== ScaledObject Details ==="
+	@kubectl --context $(CONTEXT) describe scaledobject gtc-demo-prefill-scaler -n dynamo-workload | grep -A5 "Conditions\|Health\|Triggers"
+	@kubectl --context $(CONTEXT) describe scaledobject gtc-demo-decode-scaler -n dynamo-workload | grep -A5 "Conditions\|Health\|Triggers"
 
 validate-all: test-inference test-disagg test-kv-cache test-scaling ## Run all validation tests

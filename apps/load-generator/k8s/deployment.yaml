@@ -90,7 +90,7 @@ spec:
             - name: DGDSA_DECODE_NAME
               value: "gtc-demo-trtllmdecodeworker"
             - name: KEDA_SCALED_OBJECTS
-              value: ""
+              value: "gtc-demo-prefill-scaler,gtc-demo-decode-scaler"
             - name: SCENARIO_INITIAL_PREFILL_REPLICAS
               value: "1"
             - name: SCENARIO_INITIAL_DECODE_REPLICAS

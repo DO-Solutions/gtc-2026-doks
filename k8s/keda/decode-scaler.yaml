@@ -1,0 +1,22 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: gtc-demo-decode-scaler
+  namespace: dynamo-workload
+spec:
+  scaleTargetRef:
+    apiVersion: nvidia.com/v1alpha1
+    kind: DynamoGraphDeploymentScalingAdapter
+    name: gtc-demo-trtllmdecodeworker
+  pollingInterval: 15
+  cooldownPeriod: 60
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{dynamo_namespace="dynamo-workload-gtc-demo"}[5m])) by (le))
+        threshold: "0.05"
+        activationThreshold: "0.01"
