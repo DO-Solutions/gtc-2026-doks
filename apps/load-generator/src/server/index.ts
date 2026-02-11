@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'node:path';
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 
@@ -140,6 +141,15 @@ app.post('/api/workload/config', (req, res) => {
   const updated = scheduler.currentConfig;
   broadcast({ type: 'state_change', data: { running: true, config: updated } });
   res.json({ status: 'updated', config: updated });
+});
+
+// ---------------------------------------------------------------------------
+// Static UI serving
+// ---------------------------------------------------------------------------
+
+app.use(express.static(path.join(__dirname, '../ui')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../ui/index.html'));
 });
 
 // ---------------------------------------------------------------------------
