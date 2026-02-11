@@ -2,6 +2,7 @@
   "name": "gtc-demo-loadgen",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build:server": "tsc",
     "build:ui": "vite build",
@@ -15,6 +16,7 @@
     "express": "^4.21.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "@kubernetes/client-node": "^1.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

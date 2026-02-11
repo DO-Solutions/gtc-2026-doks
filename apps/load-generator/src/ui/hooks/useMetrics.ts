@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { AggregateMetrics, WorkloadConfig, RequestMetrics, WSMessage } from '../types';
+import type { AggregateMetrics, WorkloadConfig, RequestMetrics, WSMessage, ScenarioStateData } from '../types';
 
 const MAX_RECENT = 20;
 
@@ -9,6 +9,7 @@ export interface UseMetricsResult {
   running: boolean;
   config: WorkloadConfig | null;
   recentRequests: RequestMetrics[];
+  scenarioState: ScenarioStateData | null;
 }
 
 export function useMetrics(): UseMetricsResult {
@@ -17,6 +18,7 @@ export function useMetrics(): UseMetricsResult {
   const [running, setRunning] = useState(false);
   const [config, setConfig] = useState<WorkloadConfig | null>(null);
   const [recentRequests, setRecentRequests] = useState<RequestMetrics[]>([]);
+  const [scenarioState, setScenarioState] = useState<ScenarioStateData | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,6 +60,9 @@ export function useMetrics(): UseMetricsResult {
             return next.length > MAX_RECENT ? next.slice(-MAX_RECENT) : next;
           });
           break;
+        case 'scenario_state':
+          setScenarioState(msg.data);
+          break;
       }
     };
   }, []);
@@ -70,5 +75,5 @@ export function useMetrics(): UseMetricsResult {
     };
   }, [connect]);
 
-  return { connected, metrics, running, config, recentRequests };
+  return { connected, metrics, running, config, recentRequests, scenarioState };
 }

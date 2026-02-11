@@ -1,7 +1,10 @@
 import express from 'express';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { loadConfig } from './config.js';
 import { loadCorpus } from './corpus-loader.js';
@@ -10,6 +13,9 @@ import { Scheduler } from './scheduler.js';
 import { SummarizationRunner } from './workloads/summarization.js';
 import { ReasoningRunner } from './workloads/reasoning.js';
 import { ChatRunner } from './workloads/chat.js';
+import { K8sScaler } from './k8s-scaler.js';
+import { ScenarioController } from './scenario-controller.js';
+import type { SchedulerControl } from './scenario-controller.js';
 import type { BaseRunner } from './workloads/base-runner.js';
 import type {
   RequestMetrics,
@@ -17,6 +23,7 @@ import type {
   WorkloadConfig,
   WSMessage,
   ServerStatus,
+  ScenarioStateData,
 } from './types.js';
 
 const config = loadConfig();
@@ -37,6 +44,47 @@ const runners = new Map<WorkloadType, BaseRunner>();
 
 // Corpus counts (set after loading)
 let corpusCounts = { chatPassages: 0, summarizationDocs: 0, reasoningPrompts: 0 };
+
+// ---------------------------------------------------------------------------
+// Scenario controller (auto mode)
+// ---------------------------------------------------------------------------
+
+const k8sScaler = new K8sScaler(config);
+
+const schedulerControl: SchedulerControl = {
+  startScheduler(wConfig: WorkloadConfig): void {
+    if (scheduler?.running) return;
+    scheduler = new Scheduler(runners, wConfig, onComplete);
+    scheduler.start();
+    startTime = Date.now();
+    startAggregateBroadcast();
+    broadcast({ type: 'state_change', data: { running: true, config: wConfig } });
+  },
+  stopScheduler(): void {
+    if (!scheduler?.running) return;
+    scheduler.stop();
+    stopAggregateBroadcast();
+    broadcast({ type: 'state_change', data: { running: false } });
+  },
+  updateSchedulerConfig(partial: Partial<WorkloadConfig>): void {
+    if (!scheduler?.running) return;
+    scheduler.updateConfig(partial);
+    broadcast({ type: 'state_change', data: { running: true, config: scheduler.currentConfig } });
+  },
+  isSchedulerRunning(): boolean {
+    return scheduler?.running ?? false;
+  },
+};
+
+const scenario = new ScenarioController(
+  schedulerControl,
+  k8sScaler,
+  (type: 'scenario_state', data: ScenarioStateData | null) => {
+    broadcast({ type, data });
+  },
+  config.scenarioInitialPrefillReplicas,
+  config.scenarioInitialDecodeReplicas,
+);
 
 /** Shared callback: record metrics, broadcast via WS, and log. */
 function onComplete(m: RequestMetrics): void {
@@ -94,11 +142,16 @@ app.get('/api/status', (_req, res) => {
     uptimeMs: startTime ? Date.now() - startTime : 0,
     corpus: corpusCounts,
     metrics: scheduler?.running ? metrics.getAggregate() : null,
+    scenario: scenario.getState(),
   };
   res.json(status);
 });
 
 app.post('/api/workload/start', (req, res) => {
+  if (scenario.active) {
+    res.status(409).json({ error: 'Cannot manually start during auto mode' });
+    return;
+  }
   if (scheduler?.running) {
     res.status(409).json({ error: 'Already running. POST /api/workload/stop first.' });
     return;
@@ -121,6 +174,10 @@ app.post('/api/workload/start', (req, res) => {
 });
 
 app.post('/api/workload/stop', (_req, res) => {
+  if (scenario.active) {
+    res.status(409).json({ error: 'Cannot manually stop during auto mode' });
+    return;
+  }
   if (!scheduler?.running) {
     res.status(409).json({ error: 'Not running.' });
     return;
@@ -132,6 +189,10 @@ app.post('/api/workload/stop', (_req, res) => {
 });
 
 app.post('/api/workload/config', (req, res) => {
+  if (scenario.active) {
+    res.status(409).json({ error: 'Cannot change config during auto mode' });
+    return;
+  }
   if (!scheduler?.running) {
     res.status(409).json({ error: 'Not running. POST /api/workload/start first.' });
     return;
@@ -141,6 +202,36 @@ app.post('/api/workload/config', (req, res) => {
   const updated = scheduler.currentConfig;
   broadcast({ type: 'state_change', data: { running: true, config: updated } });
   res.json({ status: 'updated', config: updated });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario (auto mode) routes
+// ---------------------------------------------------------------------------
+
+app.post('/api/scenario/auto', async (_req, res) => {
+  if (scenario.active) {
+    res.status(409).json({ error: 'Auto mode already active' });
+    return;
+  }
+  await scenario.start();
+  res.json({ status: 'auto_started' });
+});
+
+app.post('/api/scenario/stop', async (_req, res) => {
+  if (!scenario.active) {
+    res.status(409).json({ error: 'Auto mode not active' });
+    return;
+  }
+  await scenario.stop();
+  res.json({ status: 'auto_stopped' });
+});
+
+app.post('/api/scenario/manual', async (_req, res) => {
+  if (scenario.active) {
+    await scenario.stop();
+  }
+  await k8sScaler.resumeKEDA();
+  res.json({ status: 'manual_mode' });
 });
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,7 @@ spec:
       containers:
         - name: loadgen
           image: registry.digitalocean.com/do-solutions-sfo3/gtc-demo-loadgen:TAG_PLACEHOLDER
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           env:
@@ -82,6 +83,18 @@ spec:
               value: "https://inference.do-ai.run/v1"
             - name: SERVERLESS_INFERENCE_MODEL
               value: "llama3.3-70b-instruct"
+            - name: K8S_NAMESPACE
+              value: "dynamo-workload"
+            - name: DGDSA_PREFILL_NAME
+              value: "gtc-demo-trtllmprefillworker"
+            - name: DGDSA_DECODE_NAME
+              value: "gtc-demo-trtllmdecodeworker"
+            - name: KEDA_SCALED_OBJECTS
+              value: ""
+            - name: SCENARIO_INITIAL_PREFILL_REPLICAS
+              value: "1"
+            - name: SCENARIO_INITIAL_DECODE_REPLICAS
+              value: "1"
           envFrom:
             - secretRef:
                 name: spaces-credentials

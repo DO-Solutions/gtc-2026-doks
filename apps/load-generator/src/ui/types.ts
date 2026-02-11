@@ -39,10 +39,31 @@ export interface AggregateMetrics {
   outputTokens: PercentileStats;
 }
 
+export type ScenarioPhase =
+  | 'IDLE'
+  | 'BALANCED'
+  | 'KV_CACHE_DEMO'
+  | 'PREFILL_STRESS'
+  | 'PREFILL_RECOVERY'
+  | 'DECODE_STRESS'
+  | 'DECODE_RECOVERY'
+  | 'FULL_LOAD'
+  | 'COOLDOWN';
+
+export interface ScenarioStateData {
+  phase: ScenarioPhase;
+  remainingMs: number;
+  phaseDurationMs: number;
+  phaseIndex: number;
+  totalPhases: number;
+  cycleCount: number;
+}
+
 export type WSMessage =
   | { type: 'request_complete'; data: RequestMetrics }
   | { type: 'aggregate'; data: AggregateMetrics }
-  | { type: 'state_change'; data: { running: boolean; config?: WorkloadConfig } };
+  | { type: 'state_change'; data: { running: boolean; config?: WorkloadConfig } }
+  | { type: 'scenario_state'; data: ScenarioStateData | null };
 
 export interface ServerStatus {
   running: boolean;
@@ -54,4 +75,5 @@ export interface ServerStatus {
     reasoningPrompts: number;
   };
   metrics: AggregateMetrics | null;
+  scenario: ScenarioStateData | null;
 }

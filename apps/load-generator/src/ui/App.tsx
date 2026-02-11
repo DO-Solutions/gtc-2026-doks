@@ -15,6 +15,7 @@ const DEFAULT_CONFIG: WorkloadConfig = {
 
 export function App() {
   const ws = useMetrics();
+  const autoMode = ws.scenarioState !== null;
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
   const [uptimeMs, setUptimeMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -121,14 +122,14 @@ export function App() {
       <div className="actions">
         <button
           className="btn btn-start"
-          disabled={!ws.connected || ws.running}
+          disabled={!ws.connected || ws.running || autoMode}
           onClick={handleStart}
         >
           Start
         </button>
         <button
           className="btn btn-stop"
-          disabled={!ws.connected || !ws.running}
+          disabled={!ws.connected || !ws.running || autoMode}
           onClick={handleStop}
         >
           Stop
@@ -138,11 +139,12 @@ export function App() {
       <div className="main-grid">
         <div className="card">
           <h2>Workload Controls</h2>
-          <ScenarioPresets onSelect={handleConfigChange} running={ws.running} />
+          <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={autoMode} />
           <WorkloadSliders
             config={localConfig}
             running={ws.running}
             onConfigChange={handleConfigChange}
+            disabled={autoMode}
           />
         </div>
 
@@ -152,7 +154,7 @@ export function App() {
         </div>
       </div>
 
-      <AutoModeControls />
+      <AutoModeControls scenarioState={ws.scenarioState} connected={ws.connected} />
     </>
   );
 }

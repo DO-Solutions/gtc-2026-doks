@@ -137,13 +137,29 @@ demo-status: ## Show demo status (pods, scaling, metrics)
 	@kubectl --context $(CONTEXT) get dgd,dgdsa,pods,pvc -n dynamo-workload
 
 demo-start: ## Start demo in manual mode
-	@echo "TODO: Implement demo-start"
+	@echo "Switching to manual mode and starting balanced workload..."
+	@kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload &
+	@sleep 2
+	@curl -sf -X POST localhost:3000/api/scenario/manual | python3 -m json.tool
+	@curl -sf -X POST localhost:3000/api/workload/start \
+		-H 'Content-Type: application/json' \
+		-d '{"totalRPS":2,"mix":{"a":0.4,"b":0.3,"c":0.3},"maxConcurrency":10}' | python3 -m json.tool
+	@kill %1 2>/dev/null || true
 
 demo-auto: ## Start demo in auto mode
-	@echo "TODO: Implement demo-auto"
+	@echo "Starting auto mode..."
+	@kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload &
+	@sleep 2
+	@curl -sf -X POST localhost:3000/api/scenario/auto | python3 -m json.tool
+	@kill %1 2>/dev/null || true
 
 demo-stop: ## Stop demo (scale down load)
-	@echo "TODO: Implement demo-stop"
+	@echo "Stopping demo..."
+	@kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload &
+	@sleep 2
+	@-curl -sf -X POST localhost:3000/api/scenario/stop | python3 -m json.tool
+	@-curl -sf -X POST localhost:3000/api/workload/stop | python3 -m json.tool
+	@kill %1 2>/dev/null || true
 
 demo-reset: ## Reset demo to baseline state
 	@echo "TODO: Implement demo-reset"

@@ -5,9 +5,10 @@ interface Props {
   config: WorkloadConfig;
   running: boolean;
   onConfigChange: (partial: Partial<WorkloadConfig>) => void;
+  disabled?: boolean;
 }
 
-export function WorkloadSliders({ config, running, onConfigChange }: Props) {
+export function WorkloadSliders({ config, running, onConfigChange, disabled }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<Partial<WorkloadConfig> | null>(null);
 
@@ -73,7 +74,7 @@ export function WorkloadSliders({ config, running, onConfigChange }: Props) {
           max={20}
           step={0.5}
           value={config.totalRPS}
-          disabled={!running}
+          disabled={disabled || !running}
           onChange={(e) => debounced({ totalRPS: parseFloat(e.target.value) })}
         />
       </div>
@@ -89,7 +90,7 @@ export function WorkloadSliders({ config, running, onConfigChange }: Props) {
           max={50}
           step={1}
           value={config.maxConcurrency}
-          disabled={!running}
+          disabled={disabled || !running}
           onChange={(e) => debounced({ maxConcurrency: parseInt(e.target.value) })}
         />
       </div>
@@ -107,7 +108,7 @@ export function WorkloadSliders({ config, running, onConfigChange }: Props) {
           max={100}
           step={1}
           value={Math.round(mixA)}
-          disabled={!running}
+          disabled={disabled || !running}
           onChange={(e) => handleMixChange('a', parseInt(e.target.value))}
         />
       </div>
@@ -125,7 +126,7 @@ export function WorkloadSliders({ config, running, onConfigChange }: Props) {
           max={100}
           step={1}
           value={Math.round(mixB)}
-          disabled={!running}
+          disabled={disabled || !running}
           onChange={(e) => handleMixChange('b', parseInt(e.target.value))}
         />
       </div>
@@ -143,7 +144,7 @@ export function WorkloadSliders({ config, running, onConfigChange }: Props) {
           max={100}
           step={1}
           value={Math.round(mixC)}
-          disabled={!running}
+          disabled={disabled || !running}
           onChange={(e) => handleMixChange('c', parseInt(e.target.value))}
         />
       </div>
