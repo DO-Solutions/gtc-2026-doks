@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loadgen
+  namespace: dynamo-workload
+---
+# RBAC for Phase 2e scenario controller — pre-created now so the SA is ready
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: loadgen-scaler
+  namespace: dynamo-workload
+rules:
+  # Scale DGDSA replicas
+  - apiGroups: ["nvidia.com"]
+    resources: ["dynamographdeploymentscalingadapters/scale"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["nvidia.com"]
+    resources: ["dynamographdeploymentscalingadapters"]
+    verbs: ["get", "list"]
+  # Pause/resume KEDA ScaledObjects
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loadgen-scaler
+  namespace: dynamo-workload
+subjects:
+  - kind: ServiceAccount
+    name: loadgen
+    namespace: dynamo-workload
+roleRef:
+  kind: Role
+  name: loadgen-scaler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: dynamo-workload
+  labels:
+    app: loadgen
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadgen
+  template:
+    metadata:
+      labels:
+        app: loadgen
+    spec:
+      serviceAccountName: loadgen
+      imagePullSecrets:
+        - name: deepspeed-multi-node-h200
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: doks.digitalocean.com/gpu-brand
+                    operator: DoesNotExist
+      containers:
+        - name: loadgen
+          image: registry.digitalocean.com/do-solutions-sfo3/gtc-demo-loadgen:TAG_PLACEHOLDER
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DYNAMO_FRONTEND_URL
+              value: "http://gtc-demo-frontend.dynamo-workload.svc.cluster.local:8000"
+            - name: MODEL_NAME
+              value: "MODEL_PLACEHOLDER"
+            - name: SPACES_ENDPOINT
+              value: "https://atl1.digitaloceanspaces.com"
+            - name: SPACES_BUCKET
+              value: "do-gtc2026-doks-demo"
+          envFrom:
+            - secretRef:
+                name: spaces-credentials
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10

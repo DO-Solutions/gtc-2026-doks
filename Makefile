@@ -95,12 +95,12 @@ setup-model: check-env ## Full model setup (Spaces + NFS)
 # --- Container Images (TODO) ---
 
 build-loadgen: ## Build load generator image
-	@echo "TODO: Implement build-loadgen"
+	docker build -t $(REGISTRY)/gtc-demo-loadgen:$(TAG) apps/load-generator
 
 build-all: build-loadgen ## Build all images
 
 push-loadgen: ## Push load generator image
-	@echo "TODO: Implement push-loadgen"
+	docker push $(REGISTRY)/gtc-demo-loadgen:$(TAG)
 
 push-all: push-loadgen ## Push all images
 
@@ -117,7 +117,9 @@ deploy-keda: ## Deploy KEDA ScaledObjects
 	@echo "TODO: Implement deploy-keda"
 
 deploy-loadgen: ## Deploy load generator
-	@echo "TODO: Implement deploy-loadgen"
+	sed 's|TAG_PLACEHOLDER|$(TAG)|g; s|MODEL_PLACEHOLDER|/models/$(MODEL)|g' \
+		apps/load-generator/k8s/deployment.yaml | kubectl --context $(CONTEXT) apply -f -
+	kubectl --context $(CONTEXT) apply -f apps/load-generator/k8s/service.yaml
 
 deploy-corpus: check-env ## Curate and upload corpus to Spaces
 	pip install -q -r apps/corpus-curator/requirements.txt
