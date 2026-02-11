@@ -78,9 +78,15 @@ spec:
               value: "https://atl1.digitaloceanspaces.com"
             - name: SPACES_BUCKET
               value: "do-gtc2026-doks-demo"
+            - name: SERVERLESS_INFERENCE_URL
+              value: "https://inference.do-ai.run/v1"
+            - name: SERVERLESS_INFERENCE_MODEL
+              value: "llama3.3-70b-instruct"
           envFrom:
             - secretRef:
                 name: spaces-credentials
+            - secretRef:
+                name: gradient-api-key
           resources:
             requests:
               cpu: 250m

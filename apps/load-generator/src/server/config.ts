@@ -10,6 +10,9 @@ export interface AppConfig {
   metricsWindowSec: number;
   defaultRPS: number;
   defaultMaxConcurrency: number;
+  serverlessInferenceUrl: string;
+  serverlessInferenceModel: string;
+  gradientApiKey: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -28,5 +31,10 @@ export function loadConfig(): AppConfig {
     metricsWindowSec: parseInt(process.env.METRICS_WINDOW_SEC || '60', 10),
     defaultRPS: parseFloat(process.env.DEFAULT_RPS || '1'),
     defaultMaxConcurrency: parseInt(process.env.DEFAULT_MAX_CONCURRENCY || '10', 10),
+    serverlessInferenceUrl: process.env.SERVERLESS_INFERENCE_URL
+      || 'https://inference.do-ai.run/v1',
+    serverlessInferenceModel: process.env.SERVERLESS_INFERENCE_MODEL
+      || 'llama3.3-70b-instruct',
+    gradientApiKey: process.env.GRADIENT_API_KEY || '',
   };
 }

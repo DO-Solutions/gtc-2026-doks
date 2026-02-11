@@ -18,12 +18,24 @@ export interface ReasoningPrompt {
   prompt_token_count: number;
 }
 
+export interface ChatPassage {
+  id: string;
+  text: string;
+  topic: string;
+  token_count: number;
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 // ---------------------------------------------------------------------------
 // Workload configuration
 // ---------------------------------------------------------------------------
 
-/** Workload types: b = summarization, c = reasoning. Phase 2c adds 'a' (chat). */
-export type WorkloadType = 'b' | 'c';
+/** Workload types: a = chat, b = summarization, c = reasoning. */
+export type WorkloadType = 'a' | 'b' | 'c';
 
 /** Mix ratios for each workload type (0-1, should sum to 1). */
 export type WorkloadMix = Partial<Record<WorkloadType, number>>;
@@ -96,6 +108,7 @@ export interface ServerStatus {
   config: WorkloadConfig | null;
   uptimeMs: number;
   corpus: {
+    chatPassages: number;
     summarizationDocs: number;
     reasoningPrompts: number;
   };

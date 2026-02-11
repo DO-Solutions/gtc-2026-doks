@@ -1,8 +1,9 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { AppConfig } from './config.js';
-import type { SummarizationDoc, ReasoningPrompt } from './types.js';
+import type { SummarizationDoc, ReasoningPrompt, ChatPassage } from './types.js';
 
 export interface Corpus {
+  chatPassages: ChatPassage[];
   summarizationDocs: SummarizationDoc[];
   reasoningPrompts: ReasoningPrompt[];
 }
@@ -39,14 +40,16 @@ export async function loadCorpus(config: AppConfig): Promise<Corpus> {
   ]);
   const summarizationDocs = [...shortDocs, ...mediumDocs, ...longDocs];
 
-  const reasoningPrompts = await fetchJsonl<ReasoningPrompt>(
-    s3, bucket, 'corpus/reasoning/prompts.jsonl'
-  );
+  const [reasoningPrompts, chatPassages] = await Promise.all([
+    fetchJsonl<ReasoningPrompt>(s3, bucket, 'corpus/reasoning/prompts.jsonl'),
+    fetchJsonl<ChatPassage>(s3, bucket, 'corpus/chat/passages.jsonl').catch(() => []),
+  ]);
 
   console.log(
-    `[corpus] Loaded ${summarizationDocs.length} summarization docs, ` +
+    `[corpus] Loaded ${chatPassages.length} chat passages, ` +
+    `${summarizationDocs.length} summarization docs, ` +
     `${reasoningPrompts.length} reasoning prompts`
   );
 
-  return { summarizationDocs, reasoningPrompts };
+  return { chatPassages, summarizationDocs, reasoningPrompts };
 }

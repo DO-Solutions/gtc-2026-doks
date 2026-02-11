@@ -8,8 +8,10 @@ import { MetricsAggregator } from './metrics.js';
 import { Scheduler } from './scheduler.js';
 import { SummarizationRunner } from './workloads/summarization.js';
 import { ReasoningRunner } from './workloads/reasoning.js';
+import { ChatRunner } from './workloads/chat.js';
 import type { BaseRunner } from './workloads/base-runner.js';
 import type {
+  RequestMetrics,
   WorkloadType,
   WorkloadConfig,
   WSMessage,
@@ -33,7 +35,18 @@ const metrics = new MetricsAggregator(config.metricsWindowSec);
 const runners = new Map<WorkloadType, BaseRunner>();
 
 // Corpus counts (set after loading)
-let corpusCounts = { summarizationDocs: 0, reasoningPrompts: 0 };
+let corpusCounts = { chatPassages: 0, summarizationDocs: 0, reasoningPrompts: 0 };
+
+/** Shared callback: record metrics, broadcast via WS, and log. */
+function onComplete(m: RequestMetrics): void {
+  metrics.record(m);
+  broadcast({ type: 'request_complete', data: m });
+  console.log(
+    `[req] wl=${m.workload} status=${m.status} ttft=${m.ttftMs.toFixed(0)}ms ` +
+    `itl=${m.itlMs.toFixed(1)}ms tokens=${m.outputTokens} lat=${m.latencyMs.toFixed(0)}ms` +
+    (m.error ? ` err=${m.error.slice(0, 100)}` : '')
+  );
+}
 
 // ---------------------------------------------------------------------------
 // WebSocket broadcast
@@ -93,19 +106,11 @@ app.post('/api/workload/start', (req, res) => {
   const body = req.body as Partial<WorkloadConfig>;
   const wConfig: WorkloadConfig = {
     totalRPS: body.totalRPS ?? config.defaultRPS,
-    mix: body.mix ?? { b: 0.5, c: 0.5 },
+    mix: body.mix ?? { a: 0.4, b: 0.3, c: 0.3 },
     maxConcurrency: body.maxConcurrency ?? config.defaultMaxConcurrency,
   };
 
-  scheduler = new Scheduler(runners, wConfig, (m) => {
-    metrics.record(m);
-    broadcast({ type: 'request_complete', data: m });
-    console.log(
-      `[req] wl=${m.workload} status=${m.status} ttft=${m.ttftMs.toFixed(0)}ms ` +
-      `itl=${m.itlMs.toFixed(1)}ms tokens=${m.outputTokens} lat=${m.latencyMs.toFixed(0)}ms` +
-      (m.error ? ` err=${m.error.slice(0, 100)}` : '')
-    );
-  });
+  scheduler = new Scheduler(runners, wConfig, onComplete);
   scheduler.start();
   startTime = Date.now();
   startAggregateBroadcast();
@@ -145,10 +150,14 @@ async function main(): Promise<void> {
   console.log('[boot] Loading corpus from Spaces...');
   const corpus = await loadCorpus(config);
   corpusCounts = {
+    chatPassages: corpus.chatPassages.length,
     summarizationDocs: corpus.summarizationDocs.length,
     reasoningPrompts: corpus.reasoningPrompts.length,
   };
 
+  if (corpus.chatPassages.length > 0) {
+    runners.set('a', new ChatRunner(config, corpus.chatPassages, onComplete));
+  }
   if (corpus.summarizationDocs.length > 0) {
     runners.set('b', new SummarizationRunner(config, corpus.summarizationDocs));
   }

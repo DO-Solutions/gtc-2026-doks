@@ -1,10 +1,5 @@
 import type { AppConfig } from './config.js';
-import type { RequestMetrics, WorkloadType } from './types.js';
-
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+import type { ChatMessage, RequestMetrics, WorkloadType } from './types.js';
 
 export interface InferenceRequest {
   workload: WorkloadType;
@@ -13,14 +8,19 @@ export interface InferenceRequest {
   maxTokens: number;
 }
 
+export interface CapturedResult {
+  metrics: RequestMetrics;
+  responseText: string;
+}
+
 /**
- * Sends a streaming chat completion request to the Dynamo frontend
- * (OpenAI-compatible SSE endpoint) and extracts TTFT/ITL metrics.
+ * Internal: streams an SSE chat completion response, collecting metrics and
+ * optionally accumulating the response text.
  */
-export async function sendStreamingRequest(
+async function streamRequest(
   config: AppConfig,
   req: InferenceRequest,
-): Promise<RequestMetrics> {
+): Promise<CapturedResult> {
   const url = `${config.dynamoFrontendUrl}/v1/chat/completions`;
   const startTime = performance.now();
   const controller = new AbortController();
@@ -41,11 +41,11 @@ export async function sendStreamingRequest(
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
-      return errorMetrics(req, startTime, `HTTP ${resp.status}: ${body.slice(0, 200)}`);
+      return { metrics: errorMetrics(req, startTime, `HTTP ${resp.status}: ${body.slice(0, 200)}`), responseText: '' };
     }
 
     if (!resp.body) {
-      return errorMetrics(req, startTime, 'No response body');
+      return { metrics: errorMetrics(req, startTime, 'No response body'), responseText: '' };
     }
 
     const reader = resp.body.getReader();
@@ -55,6 +55,7 @@ export async function sendStreamingRequest(
     const tokenTimes: number[] = [];
     let outputTokens = 0;
     let buffer = '';
+    const textParts: string[] = [];
 
     while (true) {
       const { done, value } = await reader.read();
@@ -80,6 +81,7 @@ export async function sendStreamingRequest(
         const delta = parsed?.choices?.[0]?.delta;
         if (!delta?.content) continue;
 
+        textParts.push(delta.content);
         const now = performance.now();
         outputTokens++;
 
@@ -109,20 +111,46 @@ export async function sendStreamingRequest(
     clearTimeout(timeout);
 
     return {
-      workload: req.workload,
-      status: 'ok',
-      ttftMs,
-      itlMs,
-      latencyMs: endTime - startTime,
-      outputTokens,
-      completedAt: Date.now(),
-      itemId: req.itemId,
+      metrics: {
+        workload: req.workload,
+        status: 'ok',
+        ttftMs,
+        itlMs,
+        latencyMs: endTime - startTime,
+        outputTokens,
+        completedAt: Date.now(),
+        itemId: req.itemId,
+      },
+      responseText: textParts.join(''),
     };
   } catch (err: any) {
     clearTimeout(timeout);
     const msg = err?.name === 'AbortError' ? 'Request timeout (120s)' : (err?.message || String(err));
-    return errorMetrics(req, startTime, msg);
+    return { metrics: errorMetrics(req, startTime, msg), responseText: '' };
   }
+}
+
+/**
+ * Sends a streaming chat completion request to the Dynamo frontend
+ * (OpenAI-compatible SSE endpoint) and extracts TTFT/ITL metrics.
+ */
+export async function sendStreamingRequest(
+  config: AppConfig,
+  req: InferenceRequest,
+): Promise<RequestMetrics> {
+  const result = await streamRequest(config, req);
+  return result.metrics;
+}
+
+/**
+ * Like sendStreamingRequest but also returns the accumulated response text.
+ * Used by ChatRunner to build conversation history.
+ */
+export async function sendStreamingRequestWithCapture(
+  config: AppConfig,
+  req: InferenceRequest,
+): Promise<CapturedResult> {
+  return streamRequest(config, req);
 }
 
 function errorMetrics(
