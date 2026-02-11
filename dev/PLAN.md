@@ -828,7 +828,18 @@ Stand up the cluster, install the platform stack, and validate the core inferenc
 
 Build the load generator, workload runners, and demo UI on top of the validated platform.
 
-#### Phase 2a: Load Gen Backend
+#### Phase 2a: Dev Corpus
+
+**Deliverable:** Corpus curator tool built, minimal dev corpus (10 chat passages, 10 summarization docs, 20 reasoning prompts) curated and uploaded to Spaces bucket.
+
+**Build from these specs:**
+- Document Corpus (for Spaces bucket structure, data formats, and source material)
+- Repository Structure → `apps/corpus-curator/` (for file layout)
+- Makefile Targets → `build-curator`, `push-curator`, `deploy-corpus`
+
+**Notes:** Build the corpus curator as a Python script (`apps/corpus-curator/curate.py`) that downloads, cleans, and uploads documents to the `do-gtc2026-doks-demo` Spaces bucket following the defined structure (chat/passages.jsonl, summarization/short|medium|long/, reasoning/prompts.jsonl). For the dev subset, Wikipedia passages for chat, Project Gutenberg excerpts for summarization, and a hand-crafted prompt bank for reasoning are sufficient. The Dockerfile should package the curator for running as a K8s Job. Validate by checking the Spaces bucket contains the expected files.
+
+#### Phase 2b: Load Gen Backend
 
 **Deliverable:** Workload B (summarization) + C (reasoning) runners sending traffic to Dynamo, basic metrics collection.
 
@@ -837,20 +848,20 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 - Repository Structure → `apps/load-generator/` (for file layout)
 - Document Corpus → Workload B and C (for request format and data sources)
 
-**Notes:** Start with B and C because they don't require the Serverless Inference integration. Use a minimal dev corpus (10 docs, 20 prompts) hardcoded or loaded from local files. Runners should send to Dynamo frontend's OpenAI-compatible API and track TTFT/ITL/total latency per request.
+**Notes:** Start with B and C because they don't require the Serverless Inference integration. Runners pull corpus data from the Spaces bucket populated in Phase 2a. Runners should send to Dynamo frontend's OpenAI-compatible API and track TTFT/ITL/total latency per request.
 
-#### Phase 2b: Workload A + Corpus
+#### Phase 2c: Workload A (Chat Broker)
 
-**Deliverable:** Chat broker (Serverless Inference ↔ Dynamo), seed corpus uploaded to Spaces.
+**Deliverable:** Chat broker (Serverless Inference ↔ Dynamo), conversation state management.
 
 **Build from these specs:**
 - Load Generator Architecture → Backend → Chat runner (for conversation state management)
-- Document Corpus (for Spaces bucket structure and curation approach)
+- Document Corpus → Workload A (for chat passage format and seed prompts)
 - Secrets Management (for `GRADIENT_API_KEY` usage)
 
-**Notes:** Workload A is the most complex runner — it calls DO Serverless Inference to generate follow-up questions, then sends them to Dynamo. This requires the `gradient-api-key` secret. The corpus curator (`apps/corpus-curator/`) can be built here or run as a parallel track.
+**Notes:** Workload A is the most complex runner — it calls DO Serverless Inference to generate follow-up questions, then sends them to Dynamo. This requires the `gradient-api-key` secret. Chat passages from the Spaces bucket (uploaded in Phase 2a) provide seed context for conversations.
 
-#### Phase 2c: Load Gen UI
+#### Phase 2d: Load Gen UI
 
 **Deliverable:** React frontend: workload sliders, RPS control, start/stop, live metrics display.
 
@@ -858,9 +869,9 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 - Load Generator Architecture → Frontend (for Display 1 layout and controls)
 - Repository Structure → `apps/load-generator/src/ui/` (for component layout)
 
-**Notes:** The UI connects to the backend via REST + WebSocket. Focus on Display 1 (control panel) — Display 2 (Grafana) is handled in Phase 2f.
+**Notes:** The UI connects to the backend via REST + WebSocket. Focus on Display 1 (control panel) — Display 2 (Grafana) is handled in Phase 2g.
 
-#### Phase 2d: Scenario Controller
+#### Phase 2e: Scenario Controller
 
 **Deliverable:** Auto mode state machine, KEDA pause/resume, K8s replica patching via DGDSA.
 
@@ -871,7 +882,7 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 
 **Notes:** The scenario controller is a TypeScript module inside the load gen backend. It needs a K8s client with permissions to scale DGDSAs and patch ScaledObject annotations. The RBAC for this should be part of the load gen's ServiceAccount.
 
-#### Phase 2e: KEDA Integration
+#### Phase 2f: KEDA Integration
 
 **Deliverable:** Deploy ScaledObjects targeting DGDSAs, validate Prometheus triggers fire, tune dev thresholds.
 
@@ -881,7 +892,7 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 
 **Notes:** Thresholds (TTFT 500ms, ITL 50ms) are starting points for dev — they will need full recalibration in Phase 3. Test both manual mode (KEDA active, verify it scales on load) and auto mode (KEDA paused, verify scenario controller drives scaling).
 
-#### Phase 2f: Grafana Dashboards
+#### Phase 2g: Grafana Dashboards
 
 **Deliverable:** Apply NVIDIA K8s dashboard + KVBM ConfigMaps, verify panels populate. Build custom demo dashboard (scaling events, worker pool counts, scenario phase).
 
@@ -891,8 +902,6 @@ Build the load generator, workload runners, and demo UI on top of the validated 
 - Observability Stack → Available Metrics Reference (for panel data sources)
 
 **Notes:** Layers 1 and 2 (NVIDIA dashboards) should just work once ConfigMaps are applied — verify panels populate with real data from the running dev workload. Layer 3 (custom dashboard) requires building the JSON and adding panels for worker pools, scaling events, and scenario phase.
-
-**Parallel track:** Full document corpus curation (can be done independently).
 
 **Phase 2 Checkpoint:** Full demo flow working in dev — manual mode + auto mode cycling, all three workloads, scaling up/down, dashboards populating.
 
