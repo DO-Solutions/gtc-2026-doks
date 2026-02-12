@@ -30,6 +30,12 @@ resource "kubernetes_namespace_v1" "keda" {
   }
 }
 
+resource "kubernetes_namespace_v1" "cluster_services" {
+  metadata {
+    name = "cluster-services"
+  }
+}
+
 # --- RuntimeClass ---
 
 resource "kubernetes_runtime_class_v1" "nvidia" {
@@ -70,6 +76,17 @@ resource "kubernetes_secret_v1" "gradient_api_key" {
   data = {
     GRADIENT_API_KEY = var.gradient_api_key
   }
+}
+
+resource "kubernetes_secret_v1" "digitalocean_access_token" {
+  metadata {
+    name      = "digitalocean-access-token"
+    namespace = kubernetes_namespace_v1.cluster_services.metadata[0].name
+  }
+  data = {
+    token = var.digitalocean_token
+  }
+  type = "Opaque"
 }
 
 # --- NFS PV + PVC ---
@@ -386,6 +403,12 @@ resource "helm_release" "kube_prometheus_stack" {
       }
     }
     grafana = {
+      "grafana.ini" = {
+        server = {
+          root_url            = "https://${var.hostname}/grafana"
+          serve_from_sub_path = true
+        }
+      }
       sidecar = {
         dashboards = {
           enabled = true
@@ -437,6 +460,65 @@ resource "helm_release" "keda" {
   namespace  = kubernetes_namespace_v1.keda.metadata[0].name
 
   depends_on = [helm_release.kube_prometheus_stack]
+}
+
+# 6. cert-manager (Gateway API TLS via Let's Encrypt DNS-01)
+resource "helm_release" "cert_manager" {
+  name       = "cert-manager"
+  repository = "https://charts.jetstack.io"
+  chart      = "cert-manager"
+  namespace  = kubernetes_namespace_v1.cluster_services.metadata[0].name
+
+  set {
+    name  = "crds.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "config.apiVersion"
+    value = "controller.config.cert-manager.io/v1alpha1"
+  }
+
+  set {
+    name  = "config.kind"
+    value = "ControllerConfiguration"
+  }
+
+  set {
+    name  = "config.enableGatewayAPI"
+    value = "true"
+  }
+}
+
+# 7. external-dns (auto-creates DNS A records for Gateway)
+resource "helm_release" "external_dns" {
+  name       = "external-dns"
+  repository = "https://kubernetes-sigs.github.io/external-dns"
+  chart      = "external-dns"
+  namespace  = kubernetes_namespace_v1.cluster_services.metadata[0].name
+
+  values = [yamlencode({
+    provider = {
+      name = "digitalocean"
+    }
+    env = [{
+      name = "DO_TOKEN"
+      valueFrom = {
+        secretKeyRef = {
+          name = "digitalocean-access-token"
+          key  = "token"
+        }
+      }
+    }]
+    policy     = "sync"
+    txtOwnerId = "gtc-demo"
+    sources = [
+      "gateway-httproute",
+      "gateway-grpcroute",
+    ]
+  })]
+
+  depends_on = [kubernetes_secret_v1.digitalocean_access_token]
 }
 
 # --- Grafana Dashboard ConfigMaps ---

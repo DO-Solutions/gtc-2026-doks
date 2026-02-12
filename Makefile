@@ -14,11 +14,18 @@ MODEL     ?= meta-llama/Llama-3.1-8B-Instruct
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
 CONTEXT   ?= do-ams3-gtc-demo
 
+ifeq ($(ENV),prod)
+  HOSTNAME := gtc-2026.digitalocean.solutions
+else
+  HOSTNAME := gtc-2026-dev.digitalocean.solutions
+endif
+
 # Pass secrets to Terraform as TF_VAR_* env vars
 export TF_VAR_hf_token              := $(HF_TOKEN)
 export TF_VAR_spaces_access_key_id  := $(SPACES_ACCESS_KEY_ID)
 export TF_VAR_spaces_secret_access_key := $(SPACES_SECRET_ACCESS_KEY)
 export TF_VAR_gradient_api_key      := $(GRADIENT_API_KEY)
+export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 
 .PHONY: help check-env \
 	infra-init infra-plan infra-up infra-down \
@@ -27,6 +34,7 @@ export TF_VAR_gradient_api_key      := $(GRADIENT_API_KEY)
 	model-to-spaces model-to-nfs setup-model \
 	build-loadgen build-all push-loadgen push-all build-push-all \
 	deploy-dynamo deploy-keda deploy-loadgen deploy-corpus deploy-apps \
+	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-disagg test-kv-cache test-scaling validate-all
 
@@ -58,10 +66,10 @@ infra-down: check-env ## Destroy infra stack
 
 cluster-config: check-env ## Apply cluster config (Helm releases, namespaces, secrets)
 	terraform -chdir=$(TF_CLUSTER) init
-	terraform -chdir=$(TF_CLUSTER) apply -auto-approve
+	terraform -chdir=$(TF_CLUSTER) apply $(TF_VARS) -auto-approve
 
 cluster-teardown: check-env ## Destroy cluster config
-	terraform -chdir=$(TF_CLUSTER) destroy -auto-approve
+	terraform -chdir=$(TF_CLUSTER) destroy $(TF_VARS) -auto-approve
 
 # --- Full Deploy / Teardown ---
 
@@ -132,7 +140,18 @@ deploy-corpus: check-env ## Curate and upload corpus to Spaces
 	pip install -q -r apps/corpus-curator/requirements.txt
 	python3 apps/corpus-curator/curate.py
 
-deploy-apps: deploy-dynamo deploy-keda deploy-loadgen deploy-corpus ## Deploy all application workloads
+deploy-gateway: check-env ## Deploy Gateway API resources (cert-issuer, gateway, routes)
+	kubectl --context $(CONTEXT) apply -f k8s/gateway/clusterissuer-letsencrypt.yaml
+	sed 's|HOSTNAME_PLACEHOLDER|$(HOSTNAME)|g' \
+		k8s/gateway/gateway.yaml | kubectl --context $(CONTEXT) apply -f -
+	sed 's|HOSTNAME_PLACEHOLDER|$(HOSTNAME)|g' \
+		k8s/gateway/httproute-loadgen.yaml | kubectl --context $(CONTEXT) apply -f -
+	sed 's|HOSTNAME_PLACEHOLDER|$(HOSTNAME)|g' \
+		k8s/gateway/httproute-grafana.yaml | kubectl --context $(CONTEXT) apply -f -
+	sed 's|HOSTNAME_PLACEHOLDER|$(HOSTNAME)|g' \
+		k8s/gateway/httproute-http-redirect.yaml | kubectl --context $(CONTEXT) apply -f -
+
+deploy-apps: deploy-dynamo deploy-keda deploy-loadgen deploy-corpus deploy-gateway ## Deploy all application workloads
 
 # --- Demo Control (TODO) ---
 
@@ -181,6 +200,31 @@ demo-dashboard: ## Port-forward Grafana (http://localhost:3001)
 demo-ui: ## Port-forward load generator UI (http://localhost:3000)
 	@echo "Load generator UI available at http://localhost:3000"
 	kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload
+
+# --- Gateway Validation ---
+
+test-gateway: ## Validate Gateway, TLS, DNS, and routing
+	@echo "=== Gateway ==="
+	kubectl --context $(CONTEXT) get gateway -n cluster-services
+	@echo ""
+	@echo "=== HTTPRoutes ==="
+	kubectl --context $(CONTEXT) get httproute -A
+	@echo ""
+	@echo "=== TLS Certificate ==="
+	kubectl --context $(CONTEXT) get certificate -n cluster-services
+	@echo ""
+	@echo "=== ClusterIssuer ==="
+	kubectl --context $(CONTEXT) get clusterissuer
+	@echo ""
+	@echo "=== Gateway LB IP ==="
+	kubectl --context $(CONTEXT) get svc -n cluster-services -l io.cilium.gateway/owning-gateway
+	@echo ""
+	@echo "=== DNS ==="
+	dig +short $(HOSTNAME) || echo "DNS not yet propagated"
+	@echo ""
+	@echo "=== HTTPS ==="
+	curl -sf -o /dev/null -w "HTTP %{http_code}\n" https://$(HOSTNAME)/ || echo "Not yet reachable"
+	curl -sf -o /dev/null -w "HTTP %{http_code}\n" https://$(HOSTNAME)/grafana || echo "Not yet reachable"
 
 # --- Validation (TODO) ---
 

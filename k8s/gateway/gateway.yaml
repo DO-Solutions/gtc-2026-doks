@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gtc-demo-gateway
+  namespace: cluster-services
+  annotations:
+    cert-manager.io/cluster-issuer: gtc-demo-letsencrypt-dns01
+spec:
+  gatewayClassName: cilium
+  infrastructure:
+    annotations:
+      service.beta.kubernetes.io/do-loadbalancer-name: gtc-demo
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: HOSTNAME_PLACEHOLDER
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: tls-gtc-demo
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: HOSTNAME_PLACEHOLDER
+      allowedRoutes:
+        namespaces:
+          from: All

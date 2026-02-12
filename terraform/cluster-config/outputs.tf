@@ -17,3 +17,13 @@ output "prometheus_endpoint" {
   description = "In-cluster Prometheus endpoint URL"
   value       = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
 }
+
+output "demo_url" {
+  description = "Public URL for the load generator UI"
+  value       = "https://${var.hostname}"
+}
+
+output "grafana_url" {
+  description = "Public URL for Grafana dashboards"
+  value       = "https://${var.hostname}/grafana"
+}
