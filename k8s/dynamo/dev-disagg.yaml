@@ -70,10 +70,10 @@ spec:
             - --max-batch-size
             - "16"
             - --free-gpu-memory-fraction
-            - "0.85"
+            - "0.80"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":8192}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":16384}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real
@@ -122,10 +122,10 @@ spec:
             - --max-batch-size
             - "16"
             - --free-gpu-memory-fraction
-            - "0.85"
+            - "0.80"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":8192}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":16384}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real
