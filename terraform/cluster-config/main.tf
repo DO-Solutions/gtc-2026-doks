@@ -351,17 +351,17 @@ resource "helm_release" "dynamo_platform" {
     value = "true"
   }
 
-  set {
-    name  = "prometheusEndpoint"
-    value = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
-  }
-
   # The KAI operator auto-configures scheduling shards and GPU topology
   # from NVIDIA GPU Operator resources, which DOKS doesn't use. We only
   # need the KAI scheduler for gang scheduling, so disable the operator.
   set {
     name  = "kai-scheduler.operator.replicaCount"
     value = "0"
+  }
+
+  set {
+    name  = "prometheusEndpoint"
+    value = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
   }
 
   depends_on = [helm_release.dynamo_crds]

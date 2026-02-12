@@ -12,9 +12,6 @@ resource "digitalocean_vpc" "gtc" {
   ip_range = var.vpc_cidr
 }
 
-# Retrieves the latest available Kubernetes version on DigitalOcean.
-data "digitalocean_kubernetes_versions" "all" {}
-
 # Finds the most cost-effective Droplet size with 2 vCPUs and 4GB memory for management nodes.
 data "digitalocean_sizes" "mgmt" {
   filter {
@@ -42,7 +39,7 @@ data "digitalocean_sizes" "mgmt" {
 resource "digitalocean_kubernetes_cluster" "gtc" {
   name                             = var.name_prefix
   region                           = var.region
-  version                          = data.digitalocean_kubernetes_versions.all.latest_version
+  version                          = "1.34.1-do.3"
   vpc_uuid                         = digitalocean_vpc.gtc.id
   cluster_subnet                   = var.doks_cluster_subnet
   service_subnet                   = var.doks_service_subnet

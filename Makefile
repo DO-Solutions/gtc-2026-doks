@@ -12,7 +12,7 @@ TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
 MODEL     ?= meta-llama/Llama-3.1-8B-Instruct
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
-CONTEXT   ?= do-nyc2-gtc-demo
+CONTEXT   ?= do-ams3-gtc-demo
 
 # Pass secrets to Terraform as TF_VAR_* env vars
 export TF_VAR_hf_token              := $(HF_TOKEN)
@@ -65,7 +65,10 @@ cluster-teardown: check-env ## Destroy cluster config
 
 # --- Full Deploy / Teardown ---
 
-deploy: check-env infra-init infra-up cluster-config setup-model build-push-all deploy-apps ## Full deployment chain
+ensure-pvc: ## Ensure model NFS PVC exists (needed before setup-model)
+	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
+
+deploy: check-env infra-init infra-up cluster-config ensure-pvc setup-model build-push-all deploy-apps ## Full deployment chain
 	@echo "Deploy complete for ENV=$(ENV)"
 
 teardown: ## Full teardown (reverse order, errors suppressed)
@@ -111,7 +114,7 @@ build-push-all: build-all push-all ## Build and push all images
 deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
 	kubectl --context $(CONTEXT) apply -f k8s/dynamo/$(ENV)-disagg.yaml
-	scripts/wait-for-dynamo.sh
+	KUBE_CONTEXT=$(CONTEXT) scripts/wait-for-dynamo.sh
 
 deploy-keda: ## Deploy KEDA ScaledObjects
 	kubectl --context $(CONTEXT) apply -f k8s/keda/prefill-scaler.yaml

@@ -3,6 +3,8 @@ kind: DynamoGraphDeployment
 metadata:
   name: gtc-demo
   namespace: dynamo-workload
+  annotations:
+    nvidia.com/enable-grove: "false"
 spec:
   backendFramework: trtllm
   pvcs:
@@ -39,8 +41,6 @@ spec:
       resources:
         limits:
           gpu: "1"
-      labels:
-        kai.scheduler/queue: default-queue
       extraPodSpec:
         tolerations:
           - key: nvidia.com/gpu
@@ -93,8 +93,6 @@ spec:
       resources:
         limits:
           gpu: "1"
-      labels:
-        kai.scheduler/queue: default-queue
       extraPodSpec:
         tolerations:
           - key: nvidia.com/gpu
