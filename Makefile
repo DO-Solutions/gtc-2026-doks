@@ -13,6 +13,7 @@ TF_VARS   := -var-file=../environments/$(ENV).tfvars
 MODEL     ?= meta-llama/Llama-3.1-8B-Instruct
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
 CONTEXT   ?= do-ams3-gtc-demo
+NVLINK_ENABLED ?= true
 
 ifeq ($(ENV),prod)
   HOSTNAME := gtc-2026.digitalocean.solutions
@@ -122,7 +123,7 @@ build-push-all: build-all push-all ## Build and push all images
 deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
 	kubectl --context $(CONTEXT) apply -f k8s/dynamo/rbac-k8s-discovery-fix.yaml
-	kubectl --context $(CONTEXT) apply -f k8s/dynamo/$(ENV)-disagg.yaml
+	NVLINK_ENABLED=$(NVLINK_ENABLED) envsubst '$${NVLINK_ENABLED}' < k8s/dynamo/$(ENV)-disagg.yaml | kubectl --context $(CONTEXT) apply -f -
 	KUBE_CONTEXT=$(CONTEXT) scripts/wait-for-dynamo.sh
 
 deploy-keda: ## Deploy KEDA ScaledObjects
@@ -190,6 +191,9 @@ demo-stop: ## Stop demo (scale down load)
 
 demo-reset: ## Reset demo to baseline state
 	@echo "TODO: Implement demo-reset"
+
+grafana-password: ## Print Grafana admin password
+	@kubectl --context $(CONTEXT) get secret kube-prometheus-stack-grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d && echo
 
 demo-dashboard: ## Port-forward Grafana (http://localhost:3001)
 	@echo "Grafana available at http://localhost:3001"

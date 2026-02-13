@@ -33,6 +33,12 @@ variable "hostname" {
   description = "Public hostname (e.g., gtc-2026-dev.digitalocean.solutions)"
 }
 
+variable "nvlink_enabled" {
+  type        = bool
+  default     = true
+  description = "Enable host IPC for NVLink KV cache transfers between disaggregated workers"
+}
+
 variable "letsencrypt_email" {
   type        = string
   default     = "gtc-2026-demo@digitalocean.com"

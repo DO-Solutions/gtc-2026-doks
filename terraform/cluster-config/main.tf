@@ -577,3 +577,16 @@ resource "kubernetes_config_map_v1" "grafana_demo_dashboard" {
     "demo-dashboard.json" = file("${path.module}/dashboards/demo.json")
   }
 }
+
+resource "kubernetes_config_map_v1" "grafana_dcgm_dashboard" {
+  metadata {
+    name      = "grafana-dcgm-dashboard"
+    namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
+    labels = {
+      grafana_dashboard = "1"
+    }
+  }
+  data = {
+    "dcgm-dashboard.json" = file("${path.module}/dashboards/dcgm.json")
+  }
+}

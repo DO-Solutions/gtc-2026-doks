@@ -47,6 +47,7 @@ spec:
         limits:
           gpu: "1"
       extraPodSpec:
+        hostIPC: ${NVLINK_ENABLED}
         tolerations:
           - key: nvidia.com/gpu
             operator: Exists
@@ -104,6 +105,7 @@ spec:
         limits:
           gpu: "1"
       extraPodSpec:
+        hostIPC: ${NVLINK_ENABLED}
         tolerations:
           - key: nvidia.com/gpu
             operator: Exists
