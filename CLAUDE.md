@@ -98,6 +98,8 @@ For unattended periods, a scenario controller cycles through the above phases au
 
 **Idempotency:** All Make targets, Terraform stacks, and K8s manifests are idempotent.
 
+**Model changes require full redeploy:** When changing the `MODEL` variable (Makefile line 13), you must redeploy both the DGD workers (`make deploy-dynamo`) AND the load generator (`make deploy-loadgen`). The loadgen gets the model name via `MODEL_PLACEHOLDER` substitution at deploy time — it won't pick up Makefile changes until redeployed. Shortcut: `make deploy-apps` redeploys everything.
+
 ### Environments
 
 | | Dev (Phase 1–2) | Prod (Phase 3+) |
