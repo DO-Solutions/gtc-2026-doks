@@ -71,7 +71,7 @@ spec:
             - --
           args:
             - --model-path
-            - /models/meta-llama/Llama-3.1-8B-Instruct
+            - /models/nvidia/Llama-3.1-8B-Instruct-FP8
             - --disaggregation-mode
             - prefill
             - --tensor-parallel-size
@@ -84,7 +84,7 @@ spec:
             - "0.80"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":24576}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":true,"trust_remote_code":true,"kv_cache_config":{"dtype":"fp8"},"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":65536}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real
@@ -129,7 +129,7 @@ spec:
             - --
           args:
             - --model-path
-            - /models/meta-llama/Llama-3.1-8B-Instruct
+            - /models/nvidia/Llama-3.1-8B-Instruct-FP8
             - --disaggregation-mode
             - decode
             - --tensor-parallel-size
@@ -142,7 +142,7 @@ spec:
             - "0.80"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":24576}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"kv_cache_config":{"dtype":"fp8"},"cache_transceiver_config":{"backend":"NIXL","max_tokens_in_buffer":65536}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real

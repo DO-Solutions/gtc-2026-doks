@@ -10,7 +10,7 @@ TF_INFRA  := terraform/infra
 TF_CLUSTER := terraform/cluster-config
 TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
-MODEL     ?= meta-llama/Llama-3.1-8B-Instruct
+MODEL     ?= nvidia/Llama-3.1-8B-Instruct-FP8
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
 CONTEXT   ?= do-ams3-gtc-demo
 NVLINK_ENABLED ?= true
