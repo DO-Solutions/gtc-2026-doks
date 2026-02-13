@@ -1,0 +1,26 @@
+# Supplemental RBAC for Dynamo v0.9.0 Kubernetes-native service discovery.
+# The operator creates a Role for the k8s-service-discovery SA but omits
+# the dynamoworkermetadatas CRD permission. This Role fills the gap.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dynamo-k8s-discovery-workermetadata
+  namespace: dynamo-workload
+rules:
+  - apiGroups: ["nvidia.com"]
+    resources: ["dynamoworkermetadatas"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dynamo-k8s-discovery-workermetadata
+  namespace: dynamo-workload
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dynamo-k8s-discovery-workermetadata
+subjects:
+  - kind: ServiceAccount
+    name: gtc-demo-k8s-service-discovery
+    namespace: dynamo-workload

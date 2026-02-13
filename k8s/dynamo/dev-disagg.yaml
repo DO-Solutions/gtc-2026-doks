@@ -22,7 +22,12 @@ spec:
           mountPoint: /models
       extraPodSpec:
         mainContainer:
-          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.8.1
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.9.0
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
       envs:
         - name: DYN_ROUTER_MODE
           value: kv
@@ -49,10 +54,15 @@ spec:
         volumes:
           - name: cuda-compat
             hostPath:
-              path: /usr/local/cuda-13.0/compat
+              path: /usr/local/cuda-13.1/compat
               type: Directory
         mainContainer:
-          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.8.1
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.9.0
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
           command:
             - bash
             - -c
@@ -101,10 +111,15 @@ spec:
         volumes:
           - name: cuda-compat
             hostPath:
-              path: /usr/local/cuda-13.0/compat
+              path: /usr/local/cuda-13.1/compat
               type: Directory
         mainContainer:
-          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.8.1
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.9.0
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
           command:
             - bash
             - -c

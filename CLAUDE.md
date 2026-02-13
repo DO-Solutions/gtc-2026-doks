@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## Rules
+
+- **Implement ALL plan steps.** When given a plan, read the entire plan before starting. Do not skip steps or assume parts are optional.
+- **Validation is mandatory.** Every plan must include numbered validation steps. Executing validation is part of completing the work — not optional. If validation fails, continue fixing until it passes or you are genuinely blocked. After completing the work form the plan and the validation then create a numbered bullet list with each item matching the numbered validation step that describes: (1) what was done, (2) how validation was performed, (3) validation results. 
+- **Ensuring Validation.** - Every plan must end with a note that validation is part of the plan and that the plan is only considered complete when validation has been performed and the results have been reported as described above.
+- **Live cluster is source of truth.** When checking cluster state (node labels, taints, pod status, resources), use `kubectl` — do not search the codebase for patterns.
+- **Go direct when the target is known.** When given a specific file to edit, go to it. Do not explore the codebase first unless asked to investigate.
+- **Discussion ≠ planning.** When asked a question or for a discussion, respond conversationally. Do not create plan files or ask clarifying questions when a direct answer is what's needed.
+- **Check naming conflicts.** Before creating new files or scripts, check for naming conflicts with existing project files and terminology.
+- **Never commit secrets.** Never store or commit secrets in the repo. All should be based on env vars, which can be set by sourcing files outside the repo.
+
 ## What We're Building
 
 A booth demo for NVIDIA GTC showcasing **disaggregated LLM inference** on DigitalOcean using NVIDIA's full inference stack. The demo runs on a single 8xH200 GPU node serving Llama 3.1 70B, with prefill and decode separated into independent worker pools that scale independently based on workload characteristics.
@@ -204,12 +215,83 @@ After `deploy-gateway`, allow ~2-3 min for LB provisioning, DNS propagation, and
 
 `make teardown` — stops demo, destroys Stack 2, destroys Stack 1 (reverse order, errors suppressed).
 
-## Rules
+## NVIDIA Stack Documentation Reference
 
-- **Implement ALL plan steps.** When given a plan, read the entire plan before starting. Do not skip steps or assume parts are optional.
-- **Live cluster is source of truth.** When checking cluster state (node labels, taints, pod status, resources), use `kubectl` — do not search the codebase for patterns.
-- **Go direct when the target is known.** When given a specific file to edit, go to it. Do not explore the codebase first unless asked to investigate.
-- **Discussion ≠ planning.** When asked a question or for a discussion, respond conversationally. Do not create plan files or ask clarifying questions when a direct answer is what's needed.
-- **Check naming conflicts.** Before creating new files or scripts, check for naming conflicts with existing project files and terminology.
-- **Validation is mandatory.** Every plan must include validation steps. Executing validation is part of completing the work — not optional. If validation fails, continue fixing until it passes or you are genuinely blocked. When finished, report: (1) what was done, (2) how validation was performed, (3) validation results.
-- **Never commit secrets.** Never store or commit secrets in the repo. All should be based on env vars, which can be set by sourcing files outside the repo.
+When answering questions or making plans about the NVIDIA inference stack (Dynamo, Grove, KAI), search the documentation in these repos. Always prefer these docs over general knowledge — they reflect the latest APIs and behavior.
+
+### Dynamo — `/home/jjk3/PycharmProjects/work/ai-dynamo/dynamo`
+
+High-throughput disaggregated LLM inference framework. Core of the serving stack.
+
+**Docs** (under `docs/pages/`):
+
+| Doc Path | Topics |
+|------|--------|
+| `backends/trtllm/` | TRT-LLM backend setup, KV cache transfer, profiling, Prometheus metrics, model examples |
+| `components/frontend/` | Frontend (request routing, KV-aware dispatch) |
+| `components/router/` | Router configuration, routing strategies, examples |
+| `components/planner/` | Planner (scaling decisions), examples |
+| `components/kvbm/` | KV Buffer Manager (cache management) |
+| `features/disaggregated-serving/` | Disaggregated prefill/decode architecture and optimization |
+| `features/lora/`, `features/multimodal/`, `features/speculative-decoding/` | LoRA, multimodal, speculative decoding support |
+| `api/nixl-connect/` | NIXL API reference (device, connector, RDMA, descriptors) |
+| `kubernetes/` | Kubernetes deployment guides |
+| `observability/` | Metrics, monitoring, dashboards |
+| `fault-tolerance/` | Fault tolerance mechanisms |
+| `design-docs/` | Architecture and disaggregation design docs |
+| `benchmarks/` | Benchmarking guides, KV-router A/B testing |
+| `reference/` | Support matrix, feature matrix, release artifacts |
+| `agents/` | Tool calling for agentic inference |
+
+**Helm chart** — `deploy/helm/charts/platform/README.md`: Complete Helm values reference for the Dynamo platform chart (operator, NATS, etcd, Grove toggle, KAI toggle, webhooks, namespace scoping, checkpoint/restore). This is the definitive reference for all Helm configuration.
+
+**Examples** (under `examples/`):
+
+| Path | Topics |
+|------|--------|
+| `basics/quickstart/` | Simple aggregated serving with vLLM |
+| `basics/disaggregated_serving/` | Prefill/decode separation setup |
+| `basics/multinode/` | Distributed multi-node inference |
+| `basics/kubernetes/` | K8s distributed inference, shared frontend |
+| `backends/trtllm/` | TRT-LLM deployment configs, engine configs, performance sweeps |
+| `deployments/EKS/`, `deployments/AKS/`, `deployments/ECS/`, `deployments/GKE/` | Cloud provider deployment guides (AWS, Azure, GCP) |
+| `custom_backend/` | Custom backend hello world, cancellation patterns |
+| `hierarchical_planner/` | Hierarchical planner setup |
+
+### Grove — `/home/jjk3/PycharmProjects/work/ai-dynamo/grove`
+
+Kubernetes API for multi-pod inference orchestration. Manages PodCliques, gang scheduling, and scaling.
+
+| Doc Path (under `docs/`) | Topics |
+|------|--------|
+| `user-guide/01_core-concepts/` | PodClique (PCS), PodCliqueSet (PCSG), core abstractions |
+| `user-guide/02_pod-and-resource-naming-conventions/` | Pod naming conventions, examples |
+| `user-guide/03_environment-variables-for-pod-discovery/` | Pod discovery env vars, patterns |
+| `api-reference/` | Scheduler API, Operator API |
+| `quickstart.md`, `installation.md` | Getting started, Kind cluster setup |
+| `designs/` | Multi-node NVLink (MNNVL) design docs |
+| `proposals/` | Enhancement proposals (topology-aware scheduling, etc.) |
+
+### KAI-Scheduler — `/home/jjk3/PycharmProjects/work/NVIDIA/KAI-Scheduler`
+
+GPU-aware Kubernetes batch scheduler. Handles queues, fairness, GPU sharing, and topology placement.
+
+| Doc Path (under `docs/`) | Topics |
+|------|--------|
+| `quickstart/` | Getting started |
+| `queues/` | Hierarchical queue configuration |
+| `fairness/` | DRF and resource fairness |
+| `priority/` | Workload prioritization |
+| `batch/` | Batch and gang scheduling |
+| `elastic/` | Elastic workload scaling |
+| `gpu-sharing/` | GPU sharing (MPS, autoscaling) |
+| `topology/` | Topology-aware scheduling (multi-level) |
+| `dra/` | Dynamic Resource Allocation |
+| `operator/` | Operator deployment, scheduling shards |
+| `metrics/` | Metrics and monitoring |
+| `developer/` | Developer guides, plugin framework, action framework, design proposals |
+| `time-based-fairshare/` | Time-based fairness policies |
+
+### GTC 2026 Doks — `/home/jjk3/PycharmProjects/work/DO-Solutions/gtc-2026-doks`
+
+The demo project itself. Docs are in this CLAUDE.md (above) and component READMEs in `apps/`, `k8s/`, `terraform/`.

@@ -206,9 +206,9 @@ resource "kubernetes_daemon_set_v1" "gpu_network_tuner" {
   }
 }
 
-# --- CUDA 13.0 Forward Compatibility ---
-# The tensorrtllm-runtime:0.8.1 image requires CUDA 13.0, but DOKS GPU nodes
-# ship with driver 575.x (CUDA 12.9). Install the cuda-compat-13-0 package
+# --- CUDA 13.1 Forward Compatibility ---
+# The tensorrtllm-runtime:0.9.0 image requires CUDA 13.1, but DOKS GPU nodes
+# ship with driver 575.x (CUDA 12.9). Install the cuda-compat-13-1 package
 # on each GPU node so the nvidia-container-toolkit injects the forward-
 # compatible libcuda into new containers.
 
@@ -268,17 +268,17 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
             <<-EOT
             set -e
             # Skip if already installed
-            if [ -d /host/usr/local/cuda-13.0/compat ]; then
-              echo "CUDA 13.0 compat already installed, skipping"
+            if [ -d /host/usr/local/cuda-13.1/compat ]; then
+              echo "CUDA 13.1 compat already installed, skipping"
               exit 0
             fi
-            echo "Installing CUDA 13.0 forward compatibility package..."
+            echo "Installing CUDA 13.1 forward compatibility package..."
             chroot /host bash -c '
               . /etc/os-release
               UBUNTU_VER=$$(echo $$VERSION_ID | tr -d ".")
               REPO_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$${UBUNTU_VER}/x86_64"
               # Add NVIDIA CUDA repo if cuda-compat package is not available
-              if ! apt-cache showpkg cuda-compat-13-0 2>/dev/null | grep -q "Versions:"; then
+              if ! apt-cache showpkg cuda-compat-13-1 2>/dev/null | grep -q "Versions:"; then
                 apt-get update -qq
                 apt-get install -y -qq wget
                 wget -qO /tmp/cuda-keyring.deb "$${REPO_URL}/cuda-keyring_1.1-1_all.deb"
@@ -286,10 +286,10 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
                 rm -f /tmp/cuda-keyring.deb
                 apt-get update -qq
               fi
-              apt-get install -y -qq --no-install-recommends cuda-compat-13-0
+              apt-get install -y -qq --no-install-recommends cuda-compat-13-1
               ldconfig
             '
-            echo "CUDA 13.0 compat installed successfully"
+            echo "CUDA 13.1 compat installed successfully"
             EOT
           ]
 
@@ -348,14 +348,16 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
 # 1. Dynamo CRDs
 resource "helm_release" "dynamo_crds" {
   name      = "dynamo-crds"
-  chart     = "https://helm.ngc.nvidia.com/nvidia/ai-dynamo/charts/dynamo-crds-0.8.1.tgz"
+  chart     = "https://helm.ngc.nvidia.com/nvidia/ai-dynamo/charts/dynamo-crds-0.9.0.tgz"
   namespace = "default"
 }
 
 # 2. Dynamo Platform (depends on CRDs)
 resource "helm_release" "dynamo_platform" {
   name      = "dynamo-platform"
-  chart     = "https://helm.ngc.nvidia.com/nvidia/ai-dynamo/charts/dynamo-platform-0.8.1.tgz"
+  # Upstream chart (unpatched). The chart's appVersion is 0.7.1 (too old for
+  # DGDSAs and webhooks), so we override the operator image tag to 0.9.0.
+  chart     = "${path.module}/charts/dynamo-platform-0.9.0.tgz"
   namespace = kubernetes_namespace_v1.dynamo_system.metadata[0].name
 
   set {
@@ -377,8 +379,22 @@ resource "helm_release" "dynamo_platform" {
   }
 
   set {
-    name  = "prometheusEndpoint"
+    name  = "dynamo-operator.dynamo.metrics.prometheusEndpoint"
     value = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  }
+
+  # Chart bundles operator image 0.7.1 which lacks DGDSA and webhook support.
+  # Override to 0.9.0 which supports both.
+  set {
+    name  = "dynamo-operator.controllerManager.manager.image.tag"
+    value = "0.9.0"
+  }
+
+  # Enable webhook infrastructure (TLS certs, port 9443, ValidatingWebhookConfiguration).
+  # Required for DGDSAs to be created.
+  set {
+    name  = "dynamo-operator.webhook.enabled"
+    value = "true"
   }
 
   depends_on = [helm_release.dynamo_crds]
