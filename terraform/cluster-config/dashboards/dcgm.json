@@ -762,10 +762,16 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL{instance=~\"${instance}\", gpu=~\"${gpu}\"}[1m])",
+          "expr": "DCGM_FI_PROF_NVLINK_TX_BYTES{instance=~\"${instance}\", gpu=~\"${gpu}\"}",
           "interval": "",
-          "legendFormat": "GPU {{gpu}}",
+          "legendFormat": "GPU {{gpu}} TX",
           "refId": "A"
+        },
+        {
+          "expr": "DCGM_FI_PROF_NVLINK_RX_BYTES{instance=~\"${instance}\", gpu=~\"${gpu}\"}",
+          "interval": "",
+          "legendFormat": "GPU {{gpu}} RX",
+          "refId": "B"
         }
       ],
       "thresholds": [],

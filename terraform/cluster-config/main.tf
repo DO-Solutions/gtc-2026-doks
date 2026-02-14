@@ -463,6 +463,41 @@ resource "helm_release" "dcgm_exporter" {
       operator = "Exists"
       effect   = "NoSchedule"
     }]
+    customMetrics = <<-EOT
+# Format: FIELD_ID, PROMETHEUS_TYPE, HELP_TEXT
+# Standard GPU metrics
+DCGM_FI_DEV_SM_CLOCK,  gauge, SM clock frequency (in MHz).
+DCGM_FI_DEV_MEM_CLOCK, gauge, Memory clock frequency (in MHz).
+DCGM_FI_DEV_MEMORY_TEMP, gauge, Memory temperature (in C).
+DCGM_FI_DEV_GPU_TEMP,    gauge, GPU temperature (in C).
+DCGM_FI_DEV_POWER_USAGE,              gauge, Power draw (in W).
+DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION, counter, Total energy consumption since boot (in mJ).
+DCGM_FI_DEV_PCIE_REPLAY_COUNTER, counter, Total number of PCIe retries.
+DCGM_FI_DEV_GPU_UTIL,      gauge, GPU utilization (in %).
+DCGM_FI_DEV_MEM_COPY_UTIL, gauge, Memory utilization (in %).
+DCGM_FI_DEV_ENC_UTIL,      gauge, Encoder utilization (in %).
+DCGM_FI_DEV_DEC_UTIL,      gauge, Decoder utilization (in %).
+DCGM_FI_DEV_XID_ERRORS, gauge, Value of the last XID error encountered.
+DCGM_FI_DEV_FB_FREE,     gauge, Framebuffer memory free (in MiB).
+DCGM_FI_DEV_FB_USED,     gauge, Framebuffer memory used (in MiB).
+DCGM_FI_DEV_FB_RESERVED, gauge, Framebuffer memory reserved (in MiB).
+# NVLink (legacy counter + profiling gauges)
+DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL, counter, Total NVLink bandwidth counters for all lanes.
+DCGM_FI_PROF_NVLINK_TX_BYTES, gauge, NVLink TX bytes per second.
+DCGM_FI_PROF_NVLINK_RX_BYTES, gauge, NVLink RX bytes per second.
+# Remapped rows
+DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS, counter, Number of remapped rows for uncorrectable errors.
+DCGM_FI_DEV_CORRECTABLE_REMAPPED_ROWS,   counter, Number of remapped rows for correctable errors.
+DCGM_FI_DEV_ROW_REMAP_FAILURE,           gauge,   Whether remapping of rows has failed.
+# DCP profiling
+DCGM_FI_PROF_GR_ENGINE_ACTIVE,   gauge, Ratio of time the graphics engine is active.
+DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Ratio of cycles the tensor pipe is active.
+DCGM_FI_PROF_DRAM_ACTIVE,        gauge, Ratio of cycles the device memory interface is active.
+DCGM_FI_PROF_PCIE_TX_BYTES,      gauge, PCIe TX bytes per second.
+DCGM_FI_PROF_PCIE_RX_BYTES,      gauge, PCIe RX bytes per second.
+# Labels
+DCGM_FI_DRIVER_VERSION, label, Driver Version.
+EOT
   })]
 
   depends_on = [helm_release.kube_prometheus_stack]
