@@ -13,84 +13,86 @@
 
 ## What We're Building
 
-A booth demo for NVIDIA GTC showcasing **disaggregated LLM inference** on DigitalOcean using NVIDIA's full inference stack. The demo runs on a single 8xH200 GPU node serving Llama 3.1 70B, with prefill and decode separated into independent worker pools that scale independently based on workload characteristics.
+A booth demo for NVIDIA GTC showcasing **KV cache-aware routing** and **speculative decoding** on DigitalOcean GPU infrastructure. The demo runs two TP=4 replicas of Llama 3.1 70B Instruct FP8 on a single 8-GPU node, served through NVIDIA Dynamo with a TensorRT-LLM backend. KV-aware routing reduces TTFT on multi-turn conversations by directing follow-up requests to the replica already holding cached KV state. Speculative decoding (Phase 2+) reduces ITL by generating multiple tokens per forward pass. The system exposes a standard OpenAI-compatible API; all optimizations are infrastructure-side.
 
-The key message: NVIDIA's cutting-edge disaggregated inference architecture runs on DigitalOcean, enabling intelligent GPU allocation that adapts to real-world workload patterns.
+The key message: DigitalOcean's GPU infrastructure, combined with NVIDIA's inference stack, delivers measurably lower latency through intelligent routing and engine-level optimization — two layers of improvement that work together transparently.
 
-## Why Disaggregation Matters
+## Why These Optimizations Matter
 
-Traditional aggregated serving forces a static trade-off: optimize for TTFT and waste GPU cycles during decode, optimize for throughput and let TTFT suffer during bursts, or pick a middle ground that's suboptimal at everything. Disaggregated serving separates these concerns — prefill workers handle prompt processing (TTFT), decode workers handle token generation (ITL/throughput), and each pool scales independently based on its own SLO metrics.
+Standard multi-replica LLM deployments with round-robin load balancing treat every request independently, creating two sources of waste:
+
+1. **Redundant prefill on multi-turn conversations.** Follow-up messages may land on a different replica than the one that served previous turns. That replica must re-process the entire conversation history — the KV cache from the original replica is wasted. TTFT grows linearly with conversation length on every turn.
+
+2. **Underutilized GPU compute during decode.** Autoregressive decoding is memory-bandwidth bound. Each forward pass generates a single token, but most time is spent loading model weights from HBM. The GPU's tensor cores sit largely idle during decode.
+
+**KV cache-aware routing** solves problem 1 at the **routing layer**. Dynamo's frontend tracks KV cache state across replicas via NATS and routes multi-turn conversations to the replica holding their cached context. On turn 2+, only the new user message requires prefill — TTFT drops dramatically.
+
+**Speculative decoding** solves problem 2 at the **engine layer**. A lightweight draft model (or EAGLE3 prediction heads) generates candidate tokens that the target model verifies in a single forward pass. Multiple tokens are produced per step, reducing ITL with no quality degradation.
+
+These optimizations are complementary — KV-aware routing targets prefill (TTFT), speculative decoding targets decode (ITL). Neither requires changes to the application, model, or API contract.
 
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────┐
-│            8x H200 GPU Node                  │
-│                                              │
-│  ┌────────────────────────────────────────┐  │
-│  │         Dynamo Frontend                │  │
-│  │  (KV-aware routing to decode workers)  │  │
-│  └──────────────────┬─────────────────────┘  │
-│          ┌──────────┴──────────┐             │
-│          ▼                     ▼             │
-│  ┌────────────────┐  ┌─────────────────┐     │
-│  │ Decode Workers │  │ Prefill Workers │     │
-│  │ (KV cache home)│  │ (compute pool)  │     │
-│  └───────┬────────┘  └───────┬─────────┘     │
-│          │    NVLink         │               │
-│          └────KV Transfer────┘               │
-│                                              │
-│  Observability: Prometheus + Grafana         │
-│  TTFT, ITL, queue depth, cache hit rate      │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│              8x H100/H200 GPU Node                       │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │           Dynamo Frontend (Rust)                   │  │
+│  │  KV-aware router: routes multi-turn conversations │  │
+│  │  to the replica holding their cached KV state     │  │
+│  └──────────────┬──────────────┬─────────────────────┘  │
+│                 │              │                         │
+│                 ▼              ▼                         │
+│  ┌──────────────────┐  ┌──────────────────┐             │
+│  │  Replica A       │  │  Replica B       │             │
+│  │  TP=4 (GPUs 0-3) │  │  TP=4 (GPUs 4-7) │             │
+│  │  Llama 70B FP8   │  │  Llama 70B FP8   │             │
+│  └──────────────────┘  └──────────────────┘             │
+│                                                          │
+│  Infrastructure: etcd, NATS, Prometheus, Grafana         │
+└──────────────────────────────────────────────────────────┘
 ```
 
-**NVIDIA stack:** Dynamo (inference platform with KV-aware routing), Grove (PodClique orchestration), KAI Scheduler (GPU-aware gang scheduling), TensorRT-LLM (inference backend). Supporting infra: etcd, NATS, KEDA.
+**NVIDIA stack:** Dynamo (inference platform with KV-aware routing), TensorRT-LLM (inference backend with speculative decoding), Grove (PodClique orchestration), KAI Scheduler (GPU-aware gang scheduling). Supporting infra: etcd, NATS.
 
-**Prod config:** 2 prefill + 3 decode workers (5 of 8 GPUs), 3 GPUs available for scaling.
+**Config:** 2 aggregated TP=4 replicas (all 8 GPUs). Each replica handles its own prefill and decode — no inter-pod KV transfers.
 
 ## The Demo Experience
 
-The demo has two modes running on booth displays:
+The demo has two displays running at the booth:
 
-**Display 1 — Load Generator UI (presenter-facing):** A React web app with workload sliders, RPS control, preset buttons, and auto mode toggle. The presenter (or auto mode) controls three workload types that create different pressure on the system.
+**Display 1 — Load Generator UI (presenter-facing):** A React web app with concurrency controls, RPS slider, preset buttons, and auto mode toggle. Drives synthetic multi-turn chat conversations against the Dynamo frontend.
 
-**Display 2 — Grafana Dashboard (audience-facing):** Real-time metrics showing TTFT, ITL, worker pool sizes, KV cache hit rate, GPU utilization, and scaling events.
+**Display 2 — Grafana Dashboard (audience-facing):** Real-time metrics showing TTFT, ITL, KV cache hit rate, GPU utilization, and active conversations.
 
-### Three Workloads
+### Workload
 
 | Workload | Pattern | Demonstrates |
 |----------|---------|-------------|
-| **A: Multi-turn Chat** | DO Serverless Inference (8B) generates follow-up questions → sends to Dynamo (70B). 3-5 turns per conversation. | KV cache routing — TTFT drops on turn 2+ due to cache hits |
-| **B: Summarization** | Long documents (10-20k tokens) from Spaces → short summaries. Prefill-heavy. | Prefill scaling — TTFT degrades, add prefill workers, TTFT recovers |
-| **C: Reasoning** | Short prompts → long responses (500-2k tokens). Decode-heavy. | Decode scaling — ITL degrades, add decode workers, ITL recovers |
+| **Multi-turn Chat** | DO Serverless Inference (8B) generates follow-up questions → sends to Dynamo (70B). 3-5 turns per conversation. | KV cache routing — TTFT drops on turn 2+ due to cache hits |
 
-### Demo Flow (Manual Mode)
+### Demo Flow
 
-1. **Baseline** — balanced load, all metrics nominal
-2. **KV Cache Demo** — Workload A at 100%, show TTFT dropping on turn 2+
-3. **Prefill Stress** — Workload B surge, TTFT degrades, scale prefill, TTFT recovers
-4. **Decode Stress** — Workload C surge, ITL degrades, scale decode, ITL recovers
-5. **Full Load** — all 8 GPUs active, system adapted to workload
+1. **Baseline** — round-robin routing under multi-turn chat load, TTFT consistent across all turns, KV cache hit rate near zero
+2. **KV-Aware Routing** — switch to KV-aware routing, TTFT drops on turn 2+, KV cache hit rate climbs as conversations progress
 
 ### Auto Mode
 
-For unattended periods, a scenario controller cycles through the above phases automatically (~13 min per cycle). Auto mode drives scaling deterministically (KEDA is paused). Manual mode lets KEDA scale organically based on SLO breaches.
+For unattended periods, a scenario controller cycles load intensity through four phases: ramp up, steady state, high load, cooldown. No scaling events — replicas are fixed at 2.
 
 ## Technical Stack & Conventions
 
 ### Infrastructure
 
 - **Terraform** (two stacks): Stack 1 = VPC + DOKS + NFS. Stack 2 = Helm releases + K8s baseline (namespaces, RuntimeClass, secrets, Dynamo CRDs + Platform + Grove + KAI, Prometheus, Grafana, KEDA, dcgm-exporter, cert-manager, external-dns).
-- **Kubernetes manifests** for application workloads (DGD CRs, KEDA ScaledObjects, load generator).
+- **Kubernetes manifests** for application workloads (DGD CRs, load generator).
 - **Make** for orchestration of all targets.
 - **Container images** published to `registry.digitalocean.com/do-solutions-sfo3/` with `gtc-demo-` prefix, tagged with `YYYYMMDD-<short SHA>`. DOKS has `registry_integration = true` for automatic pull access.
 
 ### Critical Rules (Always Follow)
 
-**DGDSA, not DGD:** All scaling (KEDA and scenario controller) targets `DynamoGraphDeploymentScalingAdapter` (DGDSA), never the DGD directly. When `scalingAdapter.enabled: true`, a validating webhook blocks direct DGD replica edits. DGDSA naming: `{dgd-name}-{service-name-lowercase}` (e.g., `gtc-demo-trtllmprefillworker`, `gtc-demo-trtllmdecodeworker`).
-
-**KEDA pause/resume:** Auto mode pauses KEDA via `autoscaling.keda.sh/paused: "true"` annotation on ScaledObjects (scenario controller drives scaling). Manual mode resumes KEDA (`"false"`) for organic SLO-based scaling.
+**Phase 1 has fixed replicas.** No KEDA scaling. 2 worker replicas at TP=4 (all 8 GPUs used). Replica count is set in the DGD CR.
 
 **DOKS GPU prerequisites:** RuntimeClass `nvidia` must exist before GPU pods (KAI injects it). All GPU pods tolerate `nvidia.com/gpu:NoSchedule`. KAI queue label: `kai.scheduler/queue: default-queue`.
 
@@ -102,34 +104,30 @@ For unattended periods, a scenario controller cycles through the above phases au
 
 ### Environments
 
-| | Dev (Phase 1–2) | Prod (Phase 3+) |
-|--|-----------------|-----------------|
+| | Dev | Prod |
+|--|-----|------|
 | GPU | 1x `gpu-h100x8-640gb` | 1x `gpu-h200x8-1128gb-contracted` |
 | Region | `ams3` | `atl1` |
-| Model | Llama 3.1 8B Instruct | Llama 3.1 70B Instruct |
-| Initial P:D | 1:1 (1 GPU free) | 2:3 (3 GPUs free) |
+| Model | Llama 3.1 70B Instruct FP8 | Llama 3.1 70B Instruct FP8 |
+| Replicas | 2x TP=4 (8 GPUs) | 2x TP=4 (8 GPUs) |
 | Hostname | `gtc-2026-dev.digitalocean.solutions` | `gtc-2026.digitalocean.solutions` |
 | Load Gen UI | `https://gtc-2026-dev.digitalocean.solutions` | `https://gtc-2026.digitalocean.solutions` |
 | Grafana | `https://gtc-2026-dev.digitalocean.solutions/grafana` | `https://gtc-2026.digitalocean.solutions/grafana` |
-| Focus | Functional correctness | Performance tuning, SLO calibration |
 
 ### Development Phases (High Level)
 
-| Phase | Focus | Environment |
-|-------|-------|-------------|
-| **1: Infrastructure & Platform** | Terraform, Helm, Dynamo serving, model loading, metrics flowing | Dev (3x H100) |
-| **2: Application** | Load gen backend + UI, workload runners, scenario controller, KEDA, Grafana dashboards | Dev (3x H100) |
-| **3: Prod Validation** | Switch to 8xH200, retune everything (KEDA thresholds, auto mode timing), record fallback video | Prod (8xH200) |
-| **4: Buffer** | Fixes and polish | As needed |
-| **5: GTC** | `make deploy ENV=prod` → live booth demo | Prod (8xH200) |
+| Phase | Focus | Risk |
+|-------|-------|------|
+| **1: KV-Aware Routing** | Aggregated TP=4 serving, KV-aware routing, multi-turn workload, baseline comparison | Low |
+| **2: Draft-Model Spec Decode** | Add Llama 8B as draft model for speculative decoding, show ITL improvement | Low-moderate |
+| **3: EAGLE3 Spec Decode** | Switch to Llama 3.3 70B + EAGLE3 heads, higher acceptance rates | Moderate-high (stretch) |
 
 ### Key File Locations
 
 - `terraform/infra/` — Stack 1 (VPC, DOKS, NFS)
 - `terraform/cluster-config/` — Stack 2 (Helm releases, K8s baseline)
 - `terraform/environments/` — `dev.tfvars`, `prod.tfvars`
-- `k8s/dynamo/` — DGD CRs and TRT-LLM engine configs
-- `k8s/keda/` — ScaledObject definitions
+- `k8s/dynamo/` — DGD CRs for aggregated TP=4 serving
 - `apps/load-generator/` — Load gen UI + backend (Node.js/Express + React)
 - `apps/corpus-curator/` — Document corpus preparation
 - `k8s/gateway/` — Gateway API resources (Gateway, HTTPRoutes, ClusterIssuer)
@@ -182,9 +180,9 @@ Step-by-step guide for standing up a new environment (e.g., prod) or re-deployin
 | 2 | `scripts/wait-for-gpu.sh 1 900` | Waits for GPU node(s) to reach Ready state. | ~5-10 min |
 | 3 | `make cluster-config ENV=<env>` | Stack 2: namespaces, secrets, Helm releases (Dynamo platform, Prometheus, Grafana, KEDA, dcgm-exporter, cert-manager, external-dns). | ~5 min |
 | 4 | `make ensure-pvc` | Creates NFS PVC for model storage. | seconds |
-| 5 | `make setup-model` | Downloads model HF → Spaces → NFS (two K8s jobs). | ~20-30 min |
+| 5 | `make setup-model` | Downloads model HF → Spaces → NFS (two K8s jobs). | ~30-45 min |
 | 6 | `make build-push-all` | Builds and pushes container images. | ~2 min |
-| 7 | `make deploy-apps ENV=<env>` | Deploys DGD, KEDA ScaledObjects, load generator, corpus, Gateway API resources. | ~5 min |
+| 7 | `make deploy-apps ENV=<env>` | Deploys DGD, load generator, corpus, Gateway API resources. | ~5 min |
 | 8 | `make test-gateway ENV=<env>` | Validates Gateway, TLS cert, DNS, HTTPS routing. | seconds |
 | 9 | `make test-inference` | Sends test request through Dynamo frontend. | seconds |
 
@@ -194,7 +192,7 @@ Or run the full chain: `make deploy ENV=<env>`
 
 `check-env` → `infra-up` → `cluster-config` → `ensure-pvc` → `setup-model` → `build-push-all` → `deploy-apps`
 
-Where `deploy-apps` = `deploy-dynamo` → `deploy-keda` → `deploy-loadgen` → `deploy-corpus` → `deploy-gateway`
+Where `deploy-apps` = `deploy-dynamo` → `deploy-loadgen` → `deploy-corpus` → `deploy-gateway`
 
 ### Gateway / DNS / TLS
 
