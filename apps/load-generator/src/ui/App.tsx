@@ -1,20 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMetrics } from './hooks/useMetrics';
+import { useTurnMetrics } from './hooks/useTurnMetrics';
 import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
-import { WorkloadSliders } from './components/WorkloadSliders';
+import { DemoControls } from './components/DemoControls';
 import { ScenarioPresets } from './components/ScenarioPresets';
 import { MetricsPanel } from './components/MetricsPanel';
 import { AutoModeControls } from './components/AutoModeControls';
+import { KVCacheInsight } from './components/KVCacheInsight';
 import type { WorkloadConfig } from './types';
 
 const DEFAULT_CONFIG: WorkloadConfig = {
   totalRPS: 2,
-  mix: { a: 1.0, b: 0, c: 0 },
+  mix: { a: 1.0 },
   maxConcurrency: 10,
 };
 
 export function App() {
   const ws = useMetrics();
+  const turnMetrics = useTurnMetrics(ws.lastRequest, ws.lastRequestId, ws.running);
   const autoMode = ws.scenarioState !== null;
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
   const [uptimeMs, setUptimeMs] = useState(0);
@@ -89,7 +92,7 @@ export function App() {
   return (
     <>
       <header className="header">
-        <h1>GTC Demo &mdash; Load Generator</h1>
+        <h1>KV Cache-Aware Routing Demo</h1>
         <div className="header-status">
           <div
             className={`status-dot ${ws.connected ? (ws.running ? 'running' : 'connected') : ''}`}
@@ -138,9 +141,9 @@ export function App() {
 
       <div className="main-grid">
         <div className="card">
-          <h2>Workload Controls</h2>
+          <h2>Demo Controls</h2>
           <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={autoMode} />
-          <WorkloadSliders
+          <DemoControls
             config={localConfig}
             running={ws.running}
             onConfigChange={handleConfigChange}
@@ -148,11 +151,10 @@ export function App() {
           />
         </div>
 
-        <div className="card">
-          <h2>Live Metrics</h2>
-          <MetricsPanel metrics={ws.metrics} running={ws.running} />
-        </div>
+        <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} />
       </div>
+
+      <MetricsPanel metrics={ws.metrics} running={ws.running} />
 
       <AutoModeControls scenarioState={ws.scenarioState} connected={ws.connected} />
     </>

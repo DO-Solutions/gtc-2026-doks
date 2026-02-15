@@ -17,10 +17,10 @@ const PHASE_LABELS: Record<ScenarioPhase, string> = {
 
 const PHASE_DESCRIPTIONS: Record<ScenarioPhase, string> = {
   IDLE: 'Waiting to start',
-  RAMP_UP: 'Ramping up — light multi-turn chat load',
-  STEADY_STATE: 'Steady state — moderate load, KV cache warming',
-  HIGH_LOAD: 'High load — heavy multi-turn traffic',
-  COOLDOWN: 'Cooling down — resetting to baseline',
+  RAMP_UP: 'Warming up — light multi-turn chat traffic',
+  STEADY_STATE: 'Steady state — KV cache hit rate stabilizing',
+  HIGH_LOAD: 'Peak traffic — routing advantage under load',
+  COOLDOWN: 'Cooling down — cache clearing',
 };
 
 function formatCountdown(ms: number): string {

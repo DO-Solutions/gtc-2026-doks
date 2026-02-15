@@ -10,6 +10,8 @@ export interface UseMetricsResult {
   config: WorkloadConfig | null;
   recentRequests: RequestMetrics[];
   scenarioState: ScenarioStateData | null;
+  lastRequest: RequestMetrics | null;
+  lastRequestId: number;
 }
 
 export function useMetrics(): UseMetricsResult {
@@ -19,6 +21,8 @@ export function useMetrics(): UseMetricsResult {
   const [config, setConfig] = useState<WorkloadConfig | null>(null);
   const [recentRequests, setRecentRequests] = useState<RequestMetrics[]>([]);
   const [scenarioState, setScenarioState] = useState<ScenarioStateData | null>(null);
+  const [lastRequest, setLastRequest] = useState<RequestMetrics | null>(null);
+  const [lastRequestId, setLastRequestId] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,6 +59,8 @@ export function useMetrics(): UseMetricsResult {
           if (!msg.data.running) setMetrics(null);
           break;
         case 'request_complete':
+          setLastRequest(msg.data);
+          setLastRequestId((prev) => prev + 1);
           setRecentRequests((prev) => {
             const next = [...prev, msg.data];
             return next.length > MAX_RECENT ? next.slice(-MAX_RECENT) : next;
@@ -75,5 +81,5 @@ export function useMetrics(): UseMetricsResult {
     };
   }, [connect]);
 
-  return { connected, metrics, running, config, recentRequests, scenarioState };
+  return { connected, metrics, running, config, recentRequests, scenarioState, lastRequest, lastRequestId };
 }
