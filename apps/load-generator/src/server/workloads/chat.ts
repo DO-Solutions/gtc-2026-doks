@@ -45,7 +45,7 @@ export class ChatRunner extends BaseRunner {
 
   async run(): Promise<RequestMetrics> {
     const passage = this.passages[Math.floor(Math.random() * this.passages.length)];
-    const turnCount = 3 + Math.floor(Math.random() * 3); // 3-5 turns
+    const turnCount = 5;
 
     const history: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },

@@ -37,27 +37,3 @@ export async function updateConfig(config: Partial<WorkloadConfig>): Promise<voi
     throw new Error(body.error ?? `POST /api/workload/config failed: ${res.status}`);
   }
 }
-
-export async function startAutoMode(): Promise<void> {
-  const res = await fetch('/api/scenario/auto', { method: 'POST' });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `POST /api/scenario/auto failed: ${res.status}`);
-  }
-}
-
-export async function stopAutoMode(): Promise<void> {
-  const res = await fetch('/api/scenario/stop', { method: 'POST' });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `POST /api/scenario/stop failed: ${res.status}`);
-  }
-}
-
-export async function switchToManual(): Promise<void> {
-  const res = await fetch('/api/scenario/manual', { method: 'POST' });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `POST /api/scenario/manual failed: ${res.status}`);
-  }
-}

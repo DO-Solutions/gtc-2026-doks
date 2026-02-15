@@ -221,7 +221,6 @@ input[type="range"]:disabled {
 .metrics-row {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
 }
 
 .metric-card-compact {
@@ -356,13 +355,6 @@ input[type="range"]:disabled {
   box-shadow: 0 0 16px rgba(76, 175, 80, 0.3);
 }
 
-.insight-counters {
-  margin-top: 12px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-align: center;
-}
-
 .collecting-data {
   color: var(--text-muted);
   text-align: center;
@@ -370,83 +362,64 @@ input[type="range"]:disabled {
   font-size: 0.95rem;
 }
 
-/* Auto mode */
-.auto-mode {
+/* Metrics section */
+.metrics-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
   margin-top: 24px;
 }
 
-.btn-auto {
-  background: var(--accent-purple);
-  color: #fff;
-}
-
-.auto-mode-error {
-  background: rgba(229, 57, 53, 0.15);
-  border: 1px solid var(--accent-red);
-  border-radius: var(--radius);
-  padding: 8px 14px;
-  margin-top: 12px;
-  font-size: 0.875rem;
-  color: var(--accent-red);
-}
-
-.auto-mode-status {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.phase-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.phase-label {
+.metrics-section h2 {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--accent-purple);
-}
-
-.phase-description {
-  font-size: 0.85rem;
+  margin-bottom: 16px;
   color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.phase-progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.metric-label {
+  position: relative;
 }
 
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--bg-card);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-purple);
-  border-radius: 3px;
-  transition: width 1s linear;
-}
-
-.countdown {
-  font-size: 1.25rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-purple);
-  min-width: 3.5em;
-  text-align: right;
-}
-
-.cycle-count {
-  font-size: 0.8rem;
+.metric-info {
+  cursor: pointer;
   color: var(--text-muted);
+  font-size: 0.65rem;
+  margin-left: 4px;
+}
+
+.metric-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  width: 190px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  text-align: left;
+  z-index: 10;
+}
+
+.metric-popover::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid var(--border);
 }
 
 /* Responsive */

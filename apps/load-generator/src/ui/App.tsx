@@ -5,7 +5,6 @@ import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
 import { DemoControls } from './components/DemoControls';
 import { ScenarioPresets } from './components/ScenarioPresets';
 import { MetricsPanel } from './components/MetricsPanel';
-import { AutoModeControls } from './components/AutoModeControls';
 import { KVCacheInsight } from './components/KVCacheInsight';
 import type { WorkloadConfig } from './types';
 
@@ -18,7 +17,6 @@ const DEFAULT_CONFIG: WorkloadConfig = {
 export function App() {
   const ws = useMetrics();
   const turnMetrics = useTurnMetrics(ws.lastRequest, ws.lastRequestId, ws.running);
-  const autoMode = ws.scenarioState !== null;
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
   const [uptimeMs, setUptimeMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -125,14 +123,14 @@ export function App() {
       <div className="actions">
         <button
           className="btn btn-start"
-          disabled={!ws.connected || ws.running || autoMode}
+          disabled={!ws.connected || ws.running}
           onClick={handleStart}
         >
           Start
         </button>
         <button
           className="btn btn-stop"
-          disabled={!ws.connected || !ws.running || autoMode}
+          disabled={!ws.connected || !ws.running}
           onClick={handleStop}
         >
           Stop
@@ -142,12 +140,12 @@ export function App() {
       <div className="main-grid">
         <div className="card">
           <h2>Demo Controls</h2>
-          <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={autoMode} />
+          <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={false} />
           <DemoControls
             config={localConfig}
             running={ws.running}
             onConfigChange={handleConfigChange}
-            disabled={autoMode}
+            disabled={false}
           />
         </div>
 
@@ -155,8 +153,6 @@ export function App() {
       </div>
 
       <MetricsPanel metrics={ws.metrics} running={ws.running} />
-
-      <AutoModeControls scenarioState={ws.scenarioState} connected={ws.connected} />
     </>
   );
 }

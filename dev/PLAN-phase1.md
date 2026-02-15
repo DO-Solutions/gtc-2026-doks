@@ -287,3 +287,18 @@ After implementing all groups above, validate:
 ---
 
 **Note:** Validation is part of this plan. The plan is only considered complete when all validation steps have been performed and results reported as a numbered list describing: (1) what was done, (2) how validation was performed, (3) validation results.
+
+
+
+What I want to get to is understandin how many concurrent chats can we support at the current non optimized configuration before we start seeing errors or unacceptable  latencies  
+
+
+I want to make some changes on how load generation and UI works. We are going to be standardizing on the term "requests" instead of "terms for use facing details. So while technically a request and response = turn, most people think of a request including the response, so its more natural for people to understand.
+
+  - Make all conversations 5 turns
+  - Change to "KV Cache Routing Insight Last 100 requests"
+  - Change "First Turn (Cold)" to "Initial TTFT (Cold)" and "Follow-up Turns (Cached)" to "Follow-up TTFT (Cached)" 
+  - Remove the "n=100" from within the TTFT boxes
+  - Remove the Conversations and Turns counters at the bottom of the KV Cache Routing Insight box.
+  - Lets change the "Requests" box in the UI to "REQUESTS LAST MIN"
+  - Can we add a mouse over info button in latency box that I can mouse over to see the description of that that metric shows?  
