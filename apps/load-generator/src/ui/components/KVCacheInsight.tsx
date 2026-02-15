@@ -17,7 +17,7 @@ export function KVCacheInsight({ turnMetrics, running }: Props) {
 
   return (
     <div className="insight-panel">
-      <h2>KV Cache Routing Insight Last 100 Requests</h2>
+      <h2>KV Cache Routing Insight</h2>
 
       {!running ? (
         <div className="collecting-data">Start the workload to see KV cache metrics</div>
@@ -28,13 +28,13 @@ export function KVCacheInsight({ turnMetrics, running }: Props) {
       ) : (
         <>
           <div className="turn-cards">
-            <div className="turn-card turn-card-cold">
+            <div className="turn-card">
               <div className="turn-card-header">Initial TTFT (Cold)</div>
               <div className="turn-value">{fmt(firstTurn.p50TTFT)}<span className="turn-unit">ms</span></div>
               <div className="turn-sub">p95: {fmt(firstTurn.p95TTFT)} ms</div>
             </div>
 
-            <div className="turn-card turn-card-warm">
+            <div className="turn-card">
               <div className="turn-card-header">Follow-up TTFT (Cached)</div>
               <div className="turn-value">{fmt(followUpTurns.p50TTFT)}<span className="turn-unit">ms</span></div>
               <div className="turn-sub">p95: {fmt(followUpTurns.p95TTFT)} ms</div>

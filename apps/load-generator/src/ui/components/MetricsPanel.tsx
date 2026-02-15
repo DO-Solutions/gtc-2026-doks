@@ -63,7 +63,7 @@ export function MetricsPanel({ metrics, running }: Props) {
 
   return (
     <div className="metrics-section" ref={sectionRef} onClick={() => setOpenPopover(null)}>
-      <h2>Metrics Last Minute</h2>
+      <h2>Metrics</h2>
       <div className="metrics-row">
         <div className="metric-card-compact">
           <div className="metric-label">RPS <InfoIcon id="rps" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>

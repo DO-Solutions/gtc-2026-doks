@@ -302,14 +302,6 @@ input[type="range"]:disabled {
   border-left: 4px solid transparent;
 }
 
-.turn-card-cold {
-  border-left-color: var(--accent-yellow);
-}
-
-.turn-card-warm {
-  border-left-color: var(--accent-green);
-}
-
 .turn-card-header {
   font-size: 0.8rem;
   color: var(--text-secondary);
