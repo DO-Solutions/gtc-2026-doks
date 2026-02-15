@@ -414,9 +414,119 @@ input[type="range"]:disabled {
   border-bottom: 5px solid var(--border);
 }
 
+/* Infrastructure section */
+.infra-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 24px;
+}
+
+.infra-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.infra-warning {
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  font-size: 0.8rem;
+  color: var(--accent-yellow);
+}
+
+.infra-pods-row {
+  display: flex;
+  gap: 16px;
+}
+
+.infra-pod-card {
+  flex: 1;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.infra-pod-header {
+  margin-bottom: 12px;
+}
+
+.infra-pod-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.infra-gpu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gpu-box {
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.gpu-box-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.gpu-box-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.gpu-box.gpu-low {
+  background: rgba(74, 144, 217, 0.12);
+  border-color: rgba(74, 144, 217, 0.3);
+}
+.gpu-box.gpu-low .gpu-box-value { color: var(--accent-blue); }
+
+.gpu-box.gpu-mid {
+  background: rgba(255, 193, 7, 0.12);
+  border-color: rgba(255, 193, 7, 0.3);
+}
+.gpu-box.gpu-mid .gpu-box-value { color: var(--accent-yellow); }
+
+.gpu-box.gpu-high {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.3);
+}
+.gpu-box.gpu-high .gpu-box-value { color: var(--accent-green); }
+
+.gpu-box.gpu-none {
+  background: var(--bg-primary);
+}
+.gpu-box.gpu-none .gpu-box-value { color: var(--text-muted); }
+
+.gpu-box-mem {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .main-grid {
     grid-template-columns: 1fr;
+  }
+
+  .infra-pods-row {
+    flex-direction: column;
   }
 }

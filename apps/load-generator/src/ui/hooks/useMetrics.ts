@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { AggregateMetrics, WorkloadConfig, RequestMetrics, WSMessage } from '../types';
+import type { AggregateMetrics, WorkloadConfig, RequestMetrics, InfrastructureMetrics, WSMessage } from '../types';
 
 const MAX_RECENT = 20;
 
@@ -11,6 +11,7 @@ export interface UseMetricsResult {
   recentRequests: RequestMetrics[];
   lastRequest: RequestMetrics | null;
   lastRequestId: number;
+  infrastructure: InfrastructureMetrics | null;
 }
 
 export function useMetrics(): UseMetricsResult {
@@ -21,6 +22,7 @@ export function useMetrics(): UseMetricsResult {
   const [recentRequests, setRecentRequests] = useState<RequestMetrics[]>([]);
   const [lastRequest, setLastRequest] = useState<RequestMetrics | null>(null);
   const [lastRequestId, setLastRequestId] = useState(0);
+  const [infrastructure, setInfrastructure] = useState<InfrastructureMetrics | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,6 +66,9 @@ export function useMetrics(): UseMetricsResult {
             return next.length > MAX_RECENT ? next.slice(-MAX_RECENT) : next;
           });
           break;
+        case 'infrastructure':
+          setInfrastructure(msg.data);
+          break;
       }
     };
   }, []);
@@ -76,5 +81,5 @@ export function useMetrics(): UseMetricsResult {
     };
   }, [connect]);
 
-  return { connected, metrics, running, config, recentRequests, lastRequest, lastRequestId };
+  return { connected, metrics, running, config, recentRequests, lastRequest, lastRequestId, infrastructure };
 }

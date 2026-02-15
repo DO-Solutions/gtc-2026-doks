@@ -6,6 +6,7 @@ import { DemoControls } from './components/DemoControls';
 import { ScenarioPresets } from './components/ScenarioPresets';
 import { MetricsPanel } from './components/MetricsPanel';
 import { KVCacheInsight } from './components/KVCacheInsight';
+import { InfrastructurePanel } from './components/InfrastructurePanel';
 import type { WorkloadConfig } from './types';
 
 const DEFAULT_CONFIG: WorkloadConfig = {
@@ -149,10 +150,12 @@ export function App() {
           />
         </div>
 
-        <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} />
+        <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} kvCacheHitRate={ws.infrastructure?.kvCacheHitRate ?? null} />
       </div>
 
       <MetricsPanel metrics={ws.metrics} running={ws.running} />
+
+      <InfrastructurePanel infra={ws.infrastructure} />
     </>
   );
 }

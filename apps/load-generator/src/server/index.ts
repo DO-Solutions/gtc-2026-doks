@@ -13,9 +13,11 @@ import { Scheduler } from './scheduler.js';
 import { SummarizationRunner } from './workloads/summarization.js';
 import { ReasoningRunner } from './workloads/reasoning.js';
 import { ChatRunner } from './workloads/chat.js';
+import { InfraCollector } from './infra-collector.js';
 import type { BaseRunner } from './workloads/base-runner.js';
 import type {
   RequestMetrics,
+  InfrastructureMetrics,
   WorkloadType,
   WorkloadConfig,
   WSMessage,
@@ -39,6 +41,12 @@ wss.on('connection', (ws) => {
     },
   };
   ws.send(JSON.stringify(stateMsg));
+
+  // Send latest infrastructure snapshot if available
+  if (lastInfra) {
+    const infraMsg: WSMessage = { type: 'infrastructure', data: lastInfra };
+    ws.send(JSON.stringify(infraMsg));
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -49,6 +57,8 @@ let scheduler: Scheduler | null = null;
 let startTime: number | null = null;
 const metrics = new MetricsAggregator(config.metricsWindowSec);
 const runners = new Map<WorkloadType, BaseRunner>();
+const infraCollector = new InfraCollector(config);
+let lastInfra: InfrastructureMetrics | null = null;
 
 // Corpus counts (set after loading)
 let corpusCounts = { chatPassages: 0, summarizationDocs: 0, reasoningPrompts: 0 };
@@ -197,6 +207,16 @@ async function main(): Promise<void> {
   server.listen(config.port, () => {
     console.log(`[boot] Server listening on :${config.port}`);
   });
+
+  // Infrastructure metrics poll loop (runs always, independent of workload)
+  setInterval(async () => {
+    try {
+      lastInfra = await infraCollector.collect();
+      broadcast({ type: 'infrastructure', data: lastInfra });
+    } catch (err) {
+      console.log(`[infra] Collection error: ${err instanceof Error ? err.message : err}`);
+    }
+  }, config.infraPollIntervalMs);
 }
 
 main().catch((err) => {

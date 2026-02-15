@@ -3,6 +3,7 @@ import type { TurnMetrics } from '../hooks/useTurnMetrics';
 interface Props {
   turnMetrics: TurnMetrics;
   running: boolean;
+  kvCacheHitRate: number | null;
 }
 
 function fmt(n: number, decimals = 0): string {
@@ -11,7 +12,14 @@ function fmt(n: number, decimals = 0): string {
 
 const MIN_SAMPLES = 5;
 
-export function KVCacheInsight({ turnMetrics, running }: Props) {
+function kvHitClass(rate: number | null): string {
+  if (rate === null) return 'muted';
+  if (rate >= 50) return 'healthy';
+  if (rate >= 20) return 'warning';
+  return 'critical';
+}
+
+export function KVCacheInsight({ turnMetrics, running, kvCacheHitRate }: Props) {
   const { firstTurn, followUpTurns, speedupRatio, totalConversations, totalTurns } = turnMetrics;
   const hasData = running && firstTurn.count >= MIN_SAMPLES && followUpTurns.count >= MIN_SAMPLES;
 
@@ -38,6 +46,14 @@ export function KVCacheInsight({ turnMetrics, running }: Props) {
               <div className="turn-card-header">Follow-up TTFT (Cached)</div>
               <div className="turn-value">{fmt(followUpTurns.p50TTFT)}<span className="turn-unit">ms</span></div>
               <div className="turn-sub">p95: {fmt(followUpTurns.p95TTFT)} ms</div>
+            </div>
+
+            <div className="turn-card">
+              <div className="turn-card-header">KV Cache Hit Rate</div>
+              <div className={`turn-value ${kvHitClass(kvCacheHitRate)}`}>
+                {kvCacheHitRate !== null ? `${fmt(kvCacheHitRate)}` : '\u2014'}<span className="turn-unit">{kvCacheHitRate !== null ? '%' : ''}</span>
+              </div>
+              <div className="turn-sub">cached / total input tokens</div>
             </div>
           </div>
 

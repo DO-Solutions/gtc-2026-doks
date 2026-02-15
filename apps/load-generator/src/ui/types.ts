@@ -39,10 +39,32 @@ export interface AggregateMetrics {
   outputTokens: PercentileStats;
 }
 
+export interface GpuMetrics {
+  index: number;
+  utilization: number | null;
+  memoryUsedMiB: number | null;
+  memoryFreeMiB: number | null;
+}
+
+export interface PodInfraMetrics {
+  podName: string;
+  shortName: string;
+  gpus: GpuMetrics[];
+}
+
+export interface InfrastructureMetrics {
+  collectedAt: number;
+  pods: PodInfraMetrics[];
+  kvCacheHitRate: number | null;
+  prometheusAvailable: boolean;
+  podsDiscovered: boolean;
+}
+
 export type WSMessage =
   | { type: 'request_complete'; data: RequestMetrics }
   | { type: 'aggregate'; data: AggregateMetrics }
-  | { type: 'state_change'; data: { running: boolean; config?: WorkloadConfig } };
+  | { type: 'state_change'; data: { running: boolean; config?: WorkloadConfig } }
+  | { type: 'infrastructure'; data: InfrastructureMetrics };
 
 export interface ServerStatus {
   running: boolean;

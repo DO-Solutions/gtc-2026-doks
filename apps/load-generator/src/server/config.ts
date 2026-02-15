@@ -14,6 +14,8 @@ export interface AppConfig {
   serverlessInferenceModel: string;
   gradientApiKey: string;
   k8sNamespace: string;
+  prometheusUrl: string;
+  infraPollIntervalMs: number;
 }
 
 export function loadConfig(): AppConfig {
@@ -38,5 +40,8 @@ export function loadConfig(): AppConfig {
       || 'llama3.3-70b-instruct',
     gradientApiKey: process.env.GRADIENT_API_KEY || '',
     k8sNamespace: process.env.K8S_NAMESPACE || 'dynamo-workload',
+    prometheusUrl: process.env.PROMETHEUS_URL
+      || 'http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090',
+    infraPollIntervalMs: parseInt(process.env.INFRA_POLL_INTERVAL_MS || '5000', 10),
   };
 }
