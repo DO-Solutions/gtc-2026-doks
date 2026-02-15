@@ -365,17 +365,14 @@ resource "helm_release" "dynamo_platform" {
     value = "true"
   }
 
+  # KAI scheduler disabled: the KAI operator (which creates PodGroups for
+  # gang scheduling) requires NVIDIA GPU Operator topology data that DOKS
+  # doesn't provide. Without the operator, pods get schedulerName=kai-scheduler
+  # but no PodGroups, causing them to hang in SchedulingGated. The default
+  # K8s scheduler handles our single-node TP=4 layout fine.
   set {
     name  = "kai-scheduler.enabled"
-    value = "true"
-  }
-
-  # The KAI operator auto-configures scheduling shards and GPU topology
-  # from NVIDIA GPU Operator resources, which DOKS doesn't use. We only
-  # need the KAI scheduler for gang scheduling, so disable the operator.
-  set {
-    name  = "kai-scheduler.operator.replicaCount"
-    value = "0"
+    value = "false"
   }
 
   set {

@@ -4,7 +4,7 @@ metadata:
   name: gtc-demo
   namespace: dynamo-workload
   annotations:
-    nvidia.com/enable-grove: "false"
+    nvidia.com/enable-grove: "true"
 spec:
   backendFramework: trtllm
   pvcs:
