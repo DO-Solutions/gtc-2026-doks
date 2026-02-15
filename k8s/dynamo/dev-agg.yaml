@@ -59,11 +59,17 @@ spec:
           securityContext:
             capabilities:
               add: ["IPC_LOCK"]
+          ports:
+            - name: system
+              containerPort: 9090
+              protocol: TCP
           env:
             - name: POD_UID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.uid
+            - name: DYN_SYSTEM_PORT
+              value: "9090"
           command:
             - bash
             - -c

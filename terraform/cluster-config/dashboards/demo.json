@@ -234,12 +234,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "avg(dynamo_component_kvstats_gpu_prefix_cache_hit_rate{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "rate(dynamo_frontend_cached_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m]) / rate(dynamo_frontend_input_sequence_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])",
           "legendFormat": "Cache Hit Rate",
           "refId": "A"
         },
         {
-          "expr": "avg(dynamo_component_kvstats_gpu_cache_usage_percent{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "avg(dynamo_component_kvstats_gpu_cache_usage_percent{dynamo_namespace=\"dynamo-workload-gtc-demo\"})",
           "legendFormat": "Cache Usage",
           "refId": "B"
         }
@@ -263,7 +263,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_inflight_requests{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_inflight_requests{dynamo_namespace=\"dynamo-workload-gtc-demo\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
