@@ -6,12 +6,10 @@ interface Props {
   disabled?: boolean;
 }
 
-const PRESETS: { label: string; mix: { a: number; b: number; c: number } }[] = [
-  { label: 'Balanced', mix: { a: 0.4, b: 0.3, c: 0.3 } },
-  { label: 'KV Cache Demo', mix: { a: 1.0, b: 0, c: 0 } },
-  { label: 'Prefill Stress', mix: { a: 0, b: 0.8, c: 0.2 } },
-  { label: 'Decode Stress', mix: { a: 0, b: 0.2, c: 0.8 } },
-  { label: 'Full Load', mix: { a: 0.3, b: 0.35, c: 0.35 } },
+const PRESETS: { label: string; totalRPS: number; mix: { a: number; b: number; c: number }; maxConcurrency: number }[] = [
+  { label: 'Light Load',    totalRPS: 1.0, mix: { a: 1.0, b: 0, c: 0 }, maxConcurrency: 5  },
+  { label: 'Moderate Load', totalRPS: 2.0, mix: { a: 1.0, b: 0, c: 0 }, maxConcurrency: 10 },
+  { label: 'Heavy Load',    totalRPS: 4.0, mix: { a: 1.0, b: 0, c: 0 }, maxConcurrency: 20 },
 ];
 
 export function ScenarioPresets({ onSelect, running, disabled }: Props) {
@@ -22,7 +20,7 @@ export function ScenarioPresets({ onSelect, running, disabled }: Props) {
           key={p.label}
           className="preset-btn"
           disabled={disabled || !running}
-          onClick={() => onSelect({ mix: p.mix })}
+          onClick={() => onSelect({ mix: p.mix, totalRPS: p.totalRPS, maxConcurrency: p.maxConcurrency })}
         >
           {p.label}
         </button>

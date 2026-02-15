@@ -9,25 +9,17 @@ interface Props {
 
 const PHASE_LABELS: Record<ScenarioPhase, string> = {
   IDLE: 'Idle',
-  BALANCED: 'Balanced',
-  KV_CACHE_DEMO: 'KV Cache Demo',
-  PREFILL_STRESS: 'Prefill Stress',
-  PREFILL_RECOVERY: 'Prefill Recovery',
-  DECODE_STRESS: 'Decode Stress',
-  DECODE_RECOVERY: 'Decode Recovery',
-  FULL_LOAD: 'Full Load',
+  RAMP_UP: 'Ramp Up',
+  STEADY_STATE: 'Steady State',
+  HIGH_LOAD: 'High Load',
   COOLDOWN: 'Cooldown',
 };
 
 const PHASE_DESCRIPTIONS: Record<ScenarioPhase, string> = {
   IDLE: 'Waiting to start',
-  BALANCED: 'Balanced workload — all metrics nominal',
-  KV_CACHE_DEMO: 'Multi-turn chat — TTFT drops on cache hits',
-  PREFILL_STRESS: 'Heavy summarization — TTFT degrading',
-  PREFILL_RECOVERY: 'Scaling prefill workers — TTFT recovering',
-  DECODE_STRESS: 'Heavy reasoning — ITL degrading',
-  DECODE_RECOVERY: 'Scaling decode workers — ITL recovering',
-  FULL_LOAD: 'Full load — all GPUs active',
+  RAMP_UP: 'Ramping up — light multi-turn chat load',
+  STEADY_STATE: 'Steady state — moderate load, KV cache warming',
+  HIGH_LOAD: 'High load — heavy multi-turn traffic',
   COOLDOWN: 'Cooling down — resetting to baseline',
 };
 

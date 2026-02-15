@@ -14,11 +14,6 @@ export interface AppConfig {
   serverlessInferenceModel: string;
   gradientApiKey: string;
   k8sNamespace: string;
-  dgdsaPrefillName: string;
-  dgdsaDecodeName: string;
-  kedaScaledObjects: string[];
-  scenarioInitialPrefillReplicas: number;
-  scenarioInitialDecodeReplicas: number;
 }
 
 export function loadConfig(): AppConfig {
@@ -43,13 +38,5 @@ export function loadConfig(): AppConfig {
       || 'llama3.3-70b-instruct',
     gradientApiKey: process.env.GRADIENT_API_KEY || '',
     k8sNamespace: process.env.K8S_NAMESPACE || 'dynamo-workload',
-    dgdsaPrefillName: process.env.DGDSA_PREFILL_NAME || 'gtc-demo-trtllmprefillworker',
-    dgdsaDecodeName: process.env.DGDSA_DECODE_NAME || 'gtc-demo-trtllmdecodeworker',
-    kedaScaledObjects: (process.env.KEDA_SCALED_OBJECTS || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
-    scenarioInitialPrefillReplicas: parseInt(process.env.SCENARIO_INITIAL_PREFILL_REPLICAS || '1', 10),
-    scenarioInitialDecodeReplicas: parseInt(process.env.SCENARIO_INITIAL_DECODE_REPLICAS || '1', 10),
   };
 }

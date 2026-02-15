@@ -9,7 +9,7 @@ import type { WorkloadConfig } from './types';
 
 const DEFAULT_CONFIG: WorkloadConfig = {
   totalRPS: 2,
-  mix: { a: 0.4, b: 0.3, c: 0.3 },
+  mix: { a: 1.0, b: 0, c: 0 },
   maxConcurrency: 10,
 };
 

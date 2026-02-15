@@ -96,13 +96,9 @@ export interface AggregateMetrics {
 
 export type ScenarioPhase =
   | 'IDLE'
-  | 'BALANCED'
-  | 'KV_CACHE_DEMO'
-  | 'PREFILL_STRESS'
-  | 'PREFILL_RECOVERY'
-  | 'DECODE_STRESS'
-  | 'DECODE_RECOVERY'
-  | 'FULL_LOAD'
+  | 'RAMP_UP'
+  | 'STEADY_STATE'
+  | 'HIGH_LOAD'
   | 'COOLDOWN';
 
 export interface ScenarioStateData {

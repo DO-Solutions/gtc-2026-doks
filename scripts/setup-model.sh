@@ -5,7 +5,7 @@ MODEL="${MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
 MODEL_SLUG="$(echo "${MODEL}" | tr '/' '--' | tr '[:upper:]' '[:lower:]')"
 CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
 NAMESPACE="dynamo-workload"
-TIMEOUT="${MODEL_TIMEOUT:-1800}"
+TIMEOUT="${MODEL_TIMEOUT:-3600}"
 
 export MODEL MODEL_SLUG
 

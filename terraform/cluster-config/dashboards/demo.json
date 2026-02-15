@@ -9,15 +9,6 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
         "type": "dashboard"
-      },
-      {
-        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
-        "enable": true,
-        "hide": false,
-        "iconColor": "#FF9830",
-        "name": "Scaling Events",
-        "type": "dashboard",
-        "filter": { "ids": [0], "exclude": true }
       }
     ]
   },
@@ -197,12 +188,8 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Prefill Workers" },
+            "matcher": { "id": "byName", "options": "Workers" },
             "properties": [ { "id": "color", "value": { "fixedColor": "#8AB8FF", "mode": "fixed" } } ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Decode Workers" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
           }
         ]
       },
@@ -213,14 +200,9 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "count(kube_pod_status_phase{phase=\"Running\", namespace=\"dynamo-workload\", pod=~\"gtc-demo-.*trtllmprefillworker.*\"})",
-          "legendFormat": "Prefill Workers",
+          "expr": "count(kube_pod_status_phase{phase=\"Running\", namespace=\"dynamo-workload\", pod=~\"gtc-demo-.*trtllmworker.*\"})",
+          "legendFormat": "Workers",
           "refId": "A"
-        },
-        {
-          "expr": "count(kube_pod_status_phase{phase=\"Running\", namespace=\"dynamo-workload\", pod=~\"gtc-demo-.*trtllmdecodeworker.*\"})",
-          "legendFormat": "Decode Workers",
-          "refId": "B"
         }
       ]
     },
@@ -281,14 +263,9 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_inflight_requests{dynamo_namespace=\"dynamo_workload_gtc_demo\", dynamo_component=\"prefill\"}",
-          "legendFormat": "Prefill ({{pod}})",
+          "expr": "dynamo_component_inflight_requests{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "legendFormat": "{{pod}}",
           "refId": "A"
-        },
-        {
-          "expr": "dynamo_component_inflight_requests{dynamo_namespace=\"dynamo_workload_gtc_demo\", dynamo_component=\"tensorrt_llm\"}",
-          "legendFormat": "Decode ({{pod}})",
-          "refId": "B"
         }
       ]
     },
@@ -367,7 +344,7 @@
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "GTC Demo: Disaggregated Inference on DigitalOcean",
+  "title": "GTC Demo: Optimized LLM Inference",
   "uid": "gtc-demo",
   "version": 1
 }

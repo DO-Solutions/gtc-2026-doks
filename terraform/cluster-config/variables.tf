@@ -36,7 +36,7 @@ variable "hostname" {
 variable "nvlink_enabled" {
   type        = bool
   default     = true
-  description = "Enable host IPC for NVLink KV cache transfers between disaggregated workers"
+  description = "Enable host IPC for TP=4 intra-replica NVLink communication"
 }
 
 variable "letsencrypt_email" {

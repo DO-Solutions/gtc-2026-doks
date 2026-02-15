@@ -10,18 +10,7 @@ kind: Role
 metadata:
   name: loadgen-scaler
   namespace: dynamo-workload
-rules:
-  # Scale DGDSA replicas
-  - apiGroups: ["nvidia.com"]
-    resources: ["dynamographdeploymentscalingadapters/scale"]
-    verbs: ["get", "patch"]
-  - apiGroups: ["nvidia.com"]
-    resources: ["dynamographdeploymentscalingadapters"]
-    verbs: ["get", "list"]
-  # Pause/resume KEDA ScaledObjects
-  - apiGroups: ["keda.sh"]
-    resources: ["scaledobjects"]
-    verbs: ["get", "list", "patch"]
+rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -85,16 +74,6 @@ spec:
               value: "llama3.3-70b-instruct"
             - name: K8S_NAMESPACE
               value: "dynamo-workload"
-            - name: DGDSA_PREFILL_NAME
-              value: "gtc-demo-trtllmprefillworker"
-            - name: DGDSA_DECODE_NAME
-              value: "gtc-demo-trtllmdecodeworker"
-            - name: KEDA_SCALED_OBJECTS
-              value: "gtc-demo-prefill-scaler,gtc-demo-decode-scaler"
-            - name: SCENARIO_INITIAL_PREFILL_REPLICAS
-              value: "1"
-            - name: SCENARIO_INITIAL_DECODE_REPLICAS
-              value: "1"
           envFrom:
             - secretRef:
                 name: spaces-credentials

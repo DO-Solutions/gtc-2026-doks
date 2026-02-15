@@ -100,8 +100,6 @@ const scenario = new ScenarioController(
   (type: 'scenario_state', data: ScenarioStateData | null) => {
     broadcast({ type, data });
   },
-  config.scenarioInitialPrefillReplicas,
-  config.scenarioInitialDecodeReplicas,
 );
 
 /** Shared callback: record metrics, broadcast via WS, and log. */
@@ -178,7 +176,7 @@ app.post('/api/workload/start', (req, res) => {
   const body = req.body as Partial<WorkloadConfig>;
   const wConfig: WorkloadConfig = {
     totalRPS: body.totalRPS ?? config.defaultRPS,
-    mix: body.mix ?? { a: 0.4, b: 0.3, c: 0.3 },
+    mix: body.mix ?? { a: 1.0, b: 0, c: 0 },
     maxConcurrency: body.maxConcurrency ?? config.defaultMaxConcurrency,
   };
 

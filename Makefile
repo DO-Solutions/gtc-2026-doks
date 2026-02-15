@@ -1,4 +1,4 @@
-# GTC 2026 Disaggregated Inference Demo
+# GTC 2026 Optimized LLM Inference Demo
 # Usage: make <target> ENV=dev|prod
 
 ENV       ?= dev
@@ -10,10 +10,9 @@ TF_INFRA  := terraform/infra
 TF_CLUSTER := terraform/cluster-config
 TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
-MODEL     ?= nvidia/Llama-3.1-8B-Instruct-FP8
+MODEL     ?= nvidia/Llama-3.1-70B-Instruct-FP8
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
 CONTEXT   ?= do-ams3-gtc-demo
-NVLINK_ENABLED ?= true
 
 ifeq ($(ENV),prod)
   HOSTNAME := gtc-2026.digitalocean.solutions
@@ -34,10 +33,10 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy teardown clean \
 	model-to-spaces model-to-nfs setup-model \
 	build-loadgen build-all push-loadgen push-all build-push-all \
-	deploy-dynamo deploy-keda deploy-loadgen deploy-corpus deploy-apps \
+	deploy-dynamo deploy-loadgen deploy-corpus deploy-apps \
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
-	test-inference test-disagg test-kv-cache test-scaling validate-all
+	test-inference test-kv-cache validate-all
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -123,15 +122,8 @@ build-push-all: build-all push-all ## Build and push all images
 deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
 	kubectl --context $(CONTEXT) apply -f k8s/dynamo/rbac-k8s-discovery-fix.yaml
-	NVLINK_ENABLED=$(NVLINK_ENABLED) envsubst '$${NVLINK_ENABLED}' < k8s/dynamo/$(ENV)-disagg.yaml | kubectl --context $(CONTEXT) apply -f -
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/$(ENV)-agg.yaml
 	KUBE_CONTEXT=$(CONTEXT) scripts/wait-for-dynamo.sh
-
-deploy-keda: ## Deploy KEDA ScaledObjects
-	kubectl --context $(CONTEXT) apply -f k8s/keda/prefill-scaler.yaml
-	kubectl --context $(CONTEXT) apply -f k8s/keda/decode-scaler.yaml
-	@echo "Waiting for ScaledObjects to become ready..."
-	@sleep 5
-	@kubectl --context $(CONTEXT) get scaledobjects -n dynamo-workload
 
 deploy-loadgen: ## Deploy load generator
 	sed 's|TAG_PLACEHOLDER|$(TAG)|g; s|MODEL_PLACEHOLDER|/models/$(MODEL)|g' \
@@ -153,7 +145,7 @@ deploy-gateway: check-env ## Deploy Gateway API resources (cert-issuer, gateway,
 	sed 's|HOSTNAME_PLACEHOLDER|$(HOSTNAME)|g' \
 		k8s/gateway/httproute-http-redirect.yaml | kubectl --context $(CONTEXT) apply -f -
 
-deploy-apps: deploy-dynamo deploy-keda deploy-loadgen deploy-corpus deploy-gateway ## Deploy all application workloads
+deploy-apps: deploy-dynamo deploy-loadgen deploy-corpus deploy-gateway ## Deploy all application workloads
 
 # --- Demo Control (TODO) ---
 
@@ -171,7 +163,7 @@ demo-start: ## Start demo in manual mode
 	@curl -sf -X POST localhost:3000/api/scenario/manual | python3 -m json.tool
 	@curl -sf -X POST localhost:3000/api/workload/start \
 		-H 'Content-Type: application/json' \
-		-d '{"totalRPS":2,"mix":{"a":0.4,"b":0.3,"c":0.3},"maxConcurrency":10}' | python3 -m json.tool
+		-d '{"totalRPS":2,"mix":{"a":1.0,"b":0,"c":0},"maxConcurrency":10}' | python3 -m json.tool
 	@kill %1 2>/dev/null || true
 
 demo-auto: ## Start demo in auto mode
@@ -246,21 +238,7 @@ test-inference: ## Test basic inference endpoint
 		-d '{"model":"/models/$(MODEL)","messages":[{"role":"user","content":"Say hello in one sentence."}],"max_tokens":50}' | python3 -m json.tool
 	@kill %1 2>/dev/null || true
 
-test-disagg: ## Test disaggregated routing
-	@echo "TODO: Implement test-disagg"
-
 test-kv-cache: ## Test KV cache hit behavior
 	@echo "TODO: Implement test-kv-cache"
 
-test-scaling: ## Test KEDA scaling triggers
-	@echo "=== ScaledObjects ==="
-	@kubectl --context $(CONTEXT) get scaledobjects -n dynamo-workload -o wide
-	@echo ""
-	@echo "=== DGDSA Status ==="
-	@kubectl --context $(CONTEXT) get dgdsa -n dynamo-workload
-	@echo ""
-	@echo "=== ScaledObject Details ==="
-	@kubectl --context $(CONTEXT) describe scaledobject gtc-demo-prefill-scaler -n dynamo-workload | grep -A5 "Conditions\|Health\|Triggers"
-	@kubectl --context $(CONTEXT) describe scaledobject gtc-demo-decode-scaler -n dynamo-workload | grep -A5 "Conditions\|Health\|Triggers"
-
-validate-all: test-inference test-disagg test-kv-cache test-scaling ## Run all validation tests
+validate-all: test-inference test-kv-cache ## Run all validation tests

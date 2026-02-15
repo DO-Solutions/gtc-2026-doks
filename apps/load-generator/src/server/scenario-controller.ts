@@ -1,5 +1,5 @@
 import type { WorkloadConfig, ScenarioPhase, ScenarioStateData, WorkloadMix } from './types.js';
-import type { K8sScaler, WorkerType } from './k8s-scaler.js';
+import type { K8sScaler } from './k8s-scaler.js';
 
 export interface SchedulerControl {
   startScheduler(config: WorkloadConfig): void;
@@ -13,31 +13,22 @@ interface PhaseSpec {
   durationMs: number;
   mix: WorkloadMix;
   totalRPS: number;
-  prefillReplicas: number | null;
-  decodeReplicas: number | null;
+  maxConcurrency: number;
 }
 
 const PHASES: PhaseSpec[] = [
-  { phase: 'BALANCED',         durationMs: 120_000, mix: { a: 0.40, b: 0.30, c: 0.30 }, totalRPS: 2,   prefillReplicas: 1,    decodeReplicas: 1    },
-  { phase: 'KV_CACHE_DEMO',    durationMs: 120_000, mix: { a: 1.00, b: 0,    c: 0    }, totalRPS: 2,   prefillReplicas: null,  decodeReplicas: null  },
-  { phase: 'PREFILL_STRESS',   durationMs: 90_000,  mix: { a: 0,    b: 0.80, c: 0.20 }, totalRPS: 3,   prefillReplicas: null,  decodeReplicas: null  },
-  { phase: 'PREFILL_RECOVERY', durationMs: 90_000,  mix: { a: 0,    b: 0.80, c: 0.20 }, totalRPS: 3,   prefillReplicas: 2,     decodeReplicas: null  },
-  { phase: 'DECODE_STRESS',    durationMs: 90_000,  mix: { a: 0,    b: 0.20, c: 0.80 }, totalRPS: 3,   prefillReplicas: null,  decodeReplicas: null  },
-  { phase: 'DECODE_RECOVERY',  durationMs: 90_000,  mix: { a: 0,    b: 0.20, c: 0.80 }, totalRPS: 3,   prefillReplicas: null,  decodeReplicas: 2     },
-  { phase: 'FULL_LOAD',        durationMs: 120_000, mix: { a: 0.30, b: 0.35, c: 0.35 }, totalRPS: 4,   prefillReplicas: null,  decodeReplicas: null  },
-  { phase: 'COOLDOWN',         durationMs: 60_000,  mix: { a: 0.33, b: 0.33, c: 0.34 }, totalRPS: 0.5, prefillReplicas: 1,     decodeReplicas: 1     },
+  { phase: 'RAMP_UP',      durationMs: 60_000,  mix: { a: 1.0, b: 0, c: 0 }, totalRPS: 1.0, maxConcurrency: 5  },
+  { phase: 'STEADY_STATE', durationMs: 120_000, mix: { a: 1.0, b: 0, c: 0 }, totalRPS: 2.0, maxConcurrency: 10 },
+  { phase: 'HIGH_LOAD',    durationMs: 90_000,  mix: { a: 1.0, b: 0, c: 0 }, totalRPS: 4.0, maxConcurrency: 20 },
+  { phase: 'COOLDOWN',     durationMs: 60_000,  mix: { a: 1.0, b: 0, c: 0 }, totalRPS: 0.5, maxConcurrency: 5  },
 ];
 
 const PHASE_DESCRIPTIONS: Record<ScenarioPhase, string> = {
-  IDLE:              'Waiting to start',
-  BALANCED:          'Balanced workload — all metrics nominal',
-  KV_CACHE_DEMO:     'Multi-turn chat — TTFT drops on cache hits',
-  PREFILL_STRESS:    'Heavy summarization — TTFT degrading',
-  PREFILL_RECOVERY:  'Scaling prefill workers — TTFT recovering',
-  DECODE_STRESS:     'Heavy reasoning — ITL degrading',
-  DECODE_RECOVERY:   'Scaling decode workers — ITL recovering',
-  FULL_LOAD:         'Full load — all GPUs active',
-  COOLDOWN:          'Cooling down — resetting to baseline',
+  IDLE:         'Waiting to start',
+  RAMP_UP:      'Ramping up — light multi-turn chat load',
+  STEADY_STATE: 'Steady state — moderate load, KV cache warming',
+  HIGH_LOAD:    'High load — heavy multi-turn traffic',
+  COOLDOWN:     'Cooling down — resetting to baseline',
 };
 
 export { PHASE_DESCRIPTIONS };
@@ -54,21 +45,14 @@ export class ScenarioController {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private _active = false;
 
-  private initialPrefillReplicas: number;
-  private initialDecodeReplicas: number;
-
   constructor(
     scheduler: SchedulerControl,
     scaler: K8sScaler,
     broadcastFn: (type: 'scenario_state', data: ScenarioStateData | null) => void,
-    initialPrefillReplicas: number,
-    initialDecodeReplicas: number,
   ) {
     this.scheduler = scheduler;
     this.scaler = scaler;
     this.broadcastFn = broadcastFn;
-    this.initialPrefillReplicas = initialPrefillReplicas;
-    this.initialDecodeReplicas = initialDecodeReplicas;
   }
 
   get active(): boolean {
@@ -98,9 +82,6 @@ export class ScenarioController {
 
     console.log('[scenario] Starting auto mode');
 
-    // Pause KEDA so it doesn't interfere
-    await this.scaler.pauseKEDA();
-
     // Start the tick timer (1/sec) for UI countdown
     this.tickTimer = setInterval(() => {
       this.broadcastFn('scenario_state', this.getState());
@@ -127,9 +108,6 @@ export class ScenarioController {
 
     this.phaseIndex = -1;
 
-    // Resume KEDA for manual mode
-    await this.scaler.resumeKEDA();
-
     // Broadcast null state
     this.broadcastFn('scenario_state', null);
   }
@@ -153,29 +131,18 @@ export class ScenarioController {
     const configUpdate: Partial<WorkloadConfig> = {
       totalRPS: spec.totalRPS,
       mix: spec.mix,
+      maxConcurrency: spec.maxConcurrency,
     };
 
-    if (spec.phase === 'BALANCED' && !this.scheduler.isSchedulerRunning()) {
+    if (spec.phase === 'RAMP_UP' && !this.scheduler.isSchedulerRunning()) {
       // Start scheduler with full config
       this.scheduler.startScheduler({
         totalRPS: spec.totalRPS,
         mix: spec.mix,
-        maxConcurrency: 10,
+        maxConcurrency: spec.maxConcurrency,
       });
     } else if (this.scheduler.isSchedulerRunning()) {
       this.scheduler.updateSchedulerConfig(configUpdate);
-    }
-
-    // Fire scaling if specified (don't block phase transition)
-    if (spec.prefillReplicas !== null) {
-      this.scaler.scaleDGDSA('prefill', spec.prefillReplicas).catch((err) => {
-        console.error('[scenario] Prefill scale error:', err);
-      });
-    }
-    if (spec.decodeReplicas !== null) {
-      this.scaler.scaleDGDSA('decode', spec.decodeReplicas).catch((err) => {
-        console.error('[scenario] Decode scale error:', err);
-      });
     }
 
     // Broadcast state immediately
