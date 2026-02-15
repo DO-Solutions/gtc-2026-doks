@@ -38,29 +38,13 @@ export function DemoControls({ config, running, onConfigChange, disabled }: Prop
     <div>
       <div className="slider-group">
         <div className="slider-label">
-          <span>RPS</span>
-          <span className="value">{config.totalRPS}</span>
-        </div>
-        <input
-          type="range"
-          min={0.5}
-          max={20}
-          step={0.5}
-          value={config.totalRPS}
-          disabled={disabled || !running}
-          onChange={(e) => debounced({ totalRPS: parseFloat(e.target.value) })}
-        />
-      </div>
-
-      <div className="slider-group">
-        <div className="slider-label">
-          <span>Max Concurrency</span>
+          <span>Concurrency</span>
           <span className="value">{config.maxConcurrency}</span>
         </div>
         <input
           type="range"
           min={1}
-          max={50}
+          max={60}
           step={1}
           value={config.maxConcurrency}
           disabled={disabled || !running}

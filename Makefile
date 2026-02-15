@@ -36,7 +36,8 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy-dynamo deploy-loadgen deploy-corpus deploy-apps \
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
-	test-inference test-kv-cache validate-all
+	test-inference test-kv-cache validate-all \
+	capacity-test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -163,7 +164,7 @@ demo-start: ## Start demo in manual mode
 	@curl -sf -X POST localhost:3000/api/scenario/manual | python3 -m json.tool
 	@curl -sf -X POST localhost:3000/api/workload/start \
 		-H 'Content-Type: application/json' \
-		-d '{"totalRPS":2,"mix":{"a":1.0,"b":0,"c":0},"maxConcurrency":10}' | python3 -m json.tool
+		-d '{"totalRPS":10,"mix":{"a":1.0,"b":0,"c":0},"maxConcurrency":35}' | python3 -m json.tool
 	@kill %1 2>/dev/null || true
 
 demo-auto: ## Start demo in auto mode
@@ -240,5 +241,8 @@ test-inference: ## Test basic inference endpoint
 
 test-kv-cache: ## Test KV cache hit behavior
 	@echo "TODO: Implement test-kv-cache"
+
+capacity-test: ## Run staircase capacity test (find max concurrency/RPS)
+	scripts/capacity-test.sh --context $(CONTEXT) --output-dir dev
 
 validate-all: test-inference test-kv-cache ## Run all validation tests

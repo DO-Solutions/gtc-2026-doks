@@ -30,8 +30,8 @@ export function loadConfig(): AppConfig {
     spacesAccessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     spacesSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
     metricsWindowSec: parseInt(process.env.METRICS_WINDOW_SEC || '60', 10),
-    defaultRPS: parseFloat(process.env.DEFAULT_RPS || '1'),
-    defaultMaxConcurrency: parseInt(process.env.DEFAULT_MAX_CONCURRENCY || '10', 10),
+    defaultRPS: parseFloat(process.env.DEFAULT_RPS || '10'),
+    defaultMaxConcurrency: parseInt(process.env.DEFAULT_MAX_CONCURRENCY || '35', 10),
     serverlessInferenceUrl: process.env.SERVERLESS_INFERENCE_URL
       || 'https://inference.do-ai.run/v1',
     serverlessInferenceModel: process.env.SERVERLESS_INFERENCE_MODEL

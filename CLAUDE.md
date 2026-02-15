@@ -132,6 +132,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 - `apps/corpus-curator/` — Document corpus preparation
 - `k8s/gateway/` — Gateway API resources (Gateway, HTTPRoutes, ClusterIssuer)
 - `scripts/` — Helper scripts called by Make
+- `dev/MAKE-REFERENCE.md` — Make targets & scripts quick reference
 
 ## Local Environment
 

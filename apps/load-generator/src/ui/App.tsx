@@ -9,9 +9,9 @@ import { KVCacheInsight } from './components/KVCacheInsight';
 import type { WorkloadConfig } from './types';
 
 const DEFAULT_CONFIG: WorkloadConfig = {
-  totalRPS: 2,
+  totalRPS: 10,
   mix: { a: 1.0 },
-  maxConcurrency: 10,
+  maxConcurrency: 35,
 };
 
 export function App() {

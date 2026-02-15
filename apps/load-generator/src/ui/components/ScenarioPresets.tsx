@@ -7,9 +7,9 @@ interface Props {
 }
 
 const PRESETS: { label: string; totalRPS: number; mix: { a: number }; maxConcurrency: number }[] = [
-  { label: 'Few Conversations', totalRPS: 0.5, mix: { a: 1.0 }, maxConcurrency: 3  },
-  { label: 'Steady Traffic',    totalRPS: 2.0, mix: { a: 1.0 }, maxConcurrency: 10 },
-  { label: 'Peak Traffic',      totalRPS: 4.0, mix: { a: 1.0 }, maxConcurrency: 20 },
+  { label: 'Few Conversations', totalRPS: 10, mix: { a: 1.0 }, maxConcurrency: 30 },
+  { label: 'Steady Traffic',    totalRPS: 10, mix: { a: 1.0 }, maxConcurrency: 35 },
+  { label: 'Peak Traffic',      totalRPS: 10, mix: { a: 1.0 }, maxConcurrency: 40 },
 ];
 
 export function ScenarioPresets({ onSelect, running, disabled }: Props) {
