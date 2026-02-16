@@ -17,6 +17,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@kubernetes/client-node": "^1.0.0",
+    "prom-client": "^15.1.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

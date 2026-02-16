@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loadgen
+  namespace: dynamo-workload
+spec:
+  selector:
+    matchLabels:
+      app: loadgen
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

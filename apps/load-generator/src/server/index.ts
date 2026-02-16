@@ -15,6 +15,7 @@ import { ReasoningRunner } from './workloads/reasoning.js';
 import { ChatRunner } from './workloads/chat.js';
 import { InfraCollector } from './infra-collector.js';
 import { ConversationStore } from './conversation-store.js';
+import { recordPrometheusMetrics, register } from './prom-metrics.js';
 import type { BaseRunner } from './workloads/base-runner.js';
 import type {
   RequestMetrics,
@@ -68,6 +69,7 @@ let corpusCounts = { chatPassages: 0, summarizationDocs: 0, reasoningPrompts: 0 
 /** Shared callback: record metrics, broadcast via WS, and log. */
 function onComplete(m: RequestMetrics): void {
   metrics.record(m);
+  recordPrometheusMetrics(m);
   broadcast({ type: 'request_complete', data: m });
   console.log(
     `[req] wl=${m.workload} status=${m.status} ttft=${m.ttftMs.toFixed(0)}ms ` +
@@ -185,6 +187,15 @@ app.get('/api/conversations/:id', (req, res) => {
     return;
   }
   res.json(record);
+});
+
+// ---------------------------------------------------------------------------
+// Prometheus metrics
+// ---------------------------------------------------------------------------
+
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
 });
 
 // ---------------------------------------------------------------------------

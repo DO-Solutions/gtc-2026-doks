@@ -130,6 +130,7 @@ deploy-loadgen: ## Deploy load generator
 	sed 's|TAG_PLACEHOLDER|$(TAG)|g; s|MODEL_PLACEHOLDER|/models/$(MODEL)|g' \
 		apps/load-generator/k8s/deployment.yaml | kubectl --context $(CONTEXT) apply -f -
 	kubectl --context $(CONTEXT) apply -f apps/load-generator/k8s/service.yaml
+	kubectl --context $(CONTEXT) apply -f apps/load-generator/k8s/servicemonitor.yaml
 
 deploy-corpus: check-env ## Curate and upload corpus to Spaces
 	pip install -q -r apps/corpus-curator/requirements.txt
