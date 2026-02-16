@@ -210,6 +210,7 @@ After `deploy-gateway`, allow ~2-3 min for LB provisioning, DNS propagation, and
 | Method | Command / URL |
 |--------|---------------|
 | Public (after gateway) | `https://<hostname>/` (Load Gen), `https://<hostname>/grafana` (Grafana) |
+| Conversation viewer | `https://<hostname>/#/conversations` (list), `https://<hostname>/#/conversations/<id>` (detail) |
 | Port-forward (fallback) | `make demo-ui` (localhost:3000), `make demo-dashboard` (localhost:3001) |
 
 ### Teardown
