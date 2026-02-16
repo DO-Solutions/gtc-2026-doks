@@ -83,7 +83,7 @@ spec:
             - --max-num-tokens
             - "8192"
             - --max-batch-size
-            - "16"
+            - "32"
             - --free-gpu-memory-fraction
             - "0.85"
             - --publish-events-and-metrics
