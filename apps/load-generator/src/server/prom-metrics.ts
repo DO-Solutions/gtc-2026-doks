@@ -23,6 +23,14 @@ const itlSummary = new client.Summary({
   ageBuckets: 5,
 });
 
+const ttftAllSummary = new client.Summary({
+  name: 'loadgen_ttft_all_seconds',
+  help: 'Time to first token for all requests (no turn-type split)',
+  percentiles: [0.5, 0.95],
+  maxAgeSeconds: 300,
+  ageBuckets: 5,
+});
+
 const requestsCounter = new client.Counter({
   name: 'loadgen_requests_total',
   help: 'Total requests by turn type and status',
@@ -30,6 +38,11 @@ const requestsCounter = new client.Counter({
 });
 
 export function recordPrometheusMetrics(m: RequestMetrics): void {
+  // Generic TTFT for all requests
+  if (m.ttftMs > 0) {
+    ttftAllSummary.observe(m.ttftMs / 1000);
+  }
+
   if (!m.itemId) return;
   const match = TURN_REGEX.exec(m.itemId);
   if (!match) return;

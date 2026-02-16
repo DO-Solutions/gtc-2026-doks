@@ -307,65 +307,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
           "unit": "s"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Initial p50" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } },
-              { "id": "custom.lineStyle", "value": { "fill": "solid" } }
-            ]
+            "matcher": { "id": "byName", "options": "p95" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
           },
           {
-            "matcher": { "id": "byName", "options": "Initial p95" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Follow-up p50" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } },
-              { "id": "custom.lineStyle", "value": { "fill": "solid" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Follow-up p95" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }
-            ]
+            "matcher": { "id": "byName", "options": "p50" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
           }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 35 },
       "id": 8,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "TTFT: Initial Turn vs Follow-up (Client-Side)",
+      "title": "TTFT: Client-Side",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "loadgen_ttft_seconds{turn_type=\"initial\", quantile=\"0.5\"}",
-          "legendFormat": "Initial p50",
+          "expr": "loadgen_ttft_all_seconds{quantile=\"0.5\"}",
+          "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "loadgen_ttft_seconds{turn_type=\"initial\", quantile=\"0.95\"}",
-          "legendFormat": "Initial p95",
+          "expr": "loadgen_ttft_all_seconds{quantile=\"0.95\"}",
+          "legendFormat": "p95",
           "refId": "B"
-        },
-        {
-          "expr": "loadgen_ttft_seconds{turn_type=\"followup\", quantile=\"0.5\"}",
-          "legendFormat": "Follow-up p50",
-          "refId": "C"
-        },
-        {
-          "expr": "loadgen_ttft_seconds{turn_type=\"followup\", quantile=\"0.95\"}",
-          "legendFormat": "Follow-up p95",
-          "refId": "D"
         }
       ]
     }
