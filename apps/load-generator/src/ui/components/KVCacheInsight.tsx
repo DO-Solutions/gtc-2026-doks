@@ -20,7 +20,7 @@ function kvHitClass(rate: number | null): string {
 }
 
 export function KVCacheInsight({ turnMetrics, running, kvCacheHitRate }: Props) {
-  const { firstTurn, followUpTurns, speedupRatio, totalConversations, totalTurns } = turnMetrics;
+  const { firstTurn, followUpTurns } = turnMetrics;
   const hasData = running && firstTurn.count >= MIN_SAMPLES && followUpTurns.count >= MIN_SAMPLES;
 
   return (
@@ -56,11 +56,6 @@ export function KVCacheInsight({ turnMetrics, running, kvCacheHitRate }: Props) 
               <div className="turn-sub">cached / total input tokens</div>
             </div>
           </div>
-
-          <div className={`speedup-callout${speedupRatio > 2 ? ' speedup-glow' : ''}`}>
-            {fmt(speedupRatio, 1)}&times; faster on follow-ups
-          </div>
-
         </>
       )}
     </div>

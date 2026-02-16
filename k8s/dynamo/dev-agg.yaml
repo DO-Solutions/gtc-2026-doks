@@ -31,6 +31,8 @@ spec:
       envs:
         - name: DYN_ROUTER_MODE
           value: kv
+        - name: DYN_KV_CACHE_BLOCK_SIZE
+          value: "32"
 
     TrtllmWorker:
       dynamoNamespace: gtc-demo
@@ -83,7 +85,7 @@ spec:
             - --max-num-tokens
             - "8192"
             - --max-batch-size
-            - "32"
+            - "12"
             - --free-gpu-memory-fraction
             - "0.85"
             - --publish-events-and-metrics

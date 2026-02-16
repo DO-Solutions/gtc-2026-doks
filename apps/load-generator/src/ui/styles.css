@@ -331,21 +331,6 @@ input[type="range"]:disabled {
   margin-top: 6px;
 }
 
-.speedup-callout {
-  margin-top: 16px;
-  padding: 10px 16px;
-  border-radius: var(--radius);
-  background: rgba(76, 175, 80, 0.1);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--accent-green);
-  text-align: center;
-}
-
-.speedup-callout.speedup-glow {
-  box-shadow: 0 0 16px rgba(76, 175, 80, 0.3);
-}
 
 .collecting-data {
   color: var(--text-muted);
