@@ -83,9 +83,9 @@ spec:
             - --tensor-parallel-size
             - "4"
             - --max-num-tokens
-            - "8192"
+            - "16384"
             - --max-batch-size
-            - "12"
+            - "64"
             - --free-gpu-memory-fraction
             - "0.85"
             - --publish-events-and-metrics

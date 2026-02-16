@@ -1,76 +1,159 @@
-# Investigate Dynamo KV Cache-Aware Routing Failure
+# Batch Size Reasoning: H100 TP=4, Llama 70B FP8, TRT-LLM
 
 ## Context
 
-I'm running a Dynamo + TRT-LLM inference setup on Kubernetes with 2 worker pods, each using TP=4 (4 GPUs per worker, 8x H100 GPUs total). KV cache-aware routing is enabled but effectively non-functional. I am currently running load gen with a concurrency of 10 to see how the system is acting under reasonable load  load.
+This document explains how to estimate an appropriate `max_batch_size` for TensorRT-LLM when serving Llama 70B with FP8 quantization (both model weights and KV cache) on 4× NVIDIA H100 80GB GPUs with tensor parallelism (TP=4). The max sequence length (`max_seq_len`) is 16,384 tokens. The target workload is an interactive chat application.
 
-The Dynamo frontend router maintains an internal tree/trie index of KV cache block locations across workers. This index is currently empty at routing time, meaning every request does a full prefill regardless of whether it's a follow-up in a conversation. Follow-up TTFT is roughly equal to (or sometimes worse than) initial TTFT.
+A batch size of 8 or 12 is dramatically underutilizing this hardware configuration. The analysis below shows why, and provides a defensible starting point.
 
-The purpose here is to troubleshoot and identify potential issues and then we will work together to resolve them.
+## Hardware Budget
 
-## Symptoms
+Each H100 SXM has 80 GB HBM3 memory. With TP=4, both model weights and KV cache are sharded across all 4 GPUs. The memory analysis is done **per GPU** since each GPU must independently hold its shard.
 
-The frontend logs show two categories of warnings in rapid succession:
+```
+Per GPU Memory Budget:
+  Total HBM:                        80.0 GB
+  Model weights (70 GB FP8 / 4):   -17.5 GB
+  CUDA context + activations:       -5.0 GB  (conservative estimate)
+  ─────────────────────────────────────────
+  Available for KV cache:           ~57.5 GB
+```
 
-1. **"Failed to find block to remove; skipping remove operation"** — The engine reports block evictions for blocks the router doesn't track. The router's index is out of sync with the engine's actual KV cache state.
+## KV Cache Per Token Calculation
 
-2. **"Failed to find parent block; skipping store operation"** — New blocks can't be inserted into the router's tree because their parent blocks are missing (already evicted or never stored). This causes a cascading failure where entire sequences become untrackable.
+The KV cache size per token is derived from the model architecture. These values come from the Llama 70B `config.json`:
 
-The scheduler INFO lines confirm the result:
+```
+num_hidden_layers:    80
+num_key_value_heads:   8   (GQA — 8 KV heads, not the full 64 query heads)
+hidden_size:        8192
+head_dim:            128   (= hidden_size / num_attention_heads = 8192 / 64)
+```
 
-gtc-2026-doks$ k logs gtc-demo-0-frontend-rmjwp | grep "Selected worker" | tail
-2026-02-16T14:38:53.950961Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=7702713015953616 dp_rank=0, logit: 138.656, cached blocks: 0, tree size: 0
-2026-02-16T14:38:54.992643Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=7702713015953616 dp_rank=0, logit: 124.031, cached blocks: 0, tree size: 0
-2026-02-16T14:38:55.106408Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=4467334888485367 dp_rank=0, logit: 48.781, cached blocks: 0, tree size: 0
-2026-02-16T14:38:55.244408Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=4467334888485367 dp_rank=0, logit: 104.562, cached blocks: 0, tree size: 0
-2026-02-16T14:38:56.212562Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=4467334888485367 dp_rank=0, logit: 155.844, cached blocks: 0, tree size: 0
-2026-02-16T14:38:58.107927Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=7702713015953616 dp_rank=0, logit: 85.094, cached blocks: 0, tree size: 0
-2026-02-16T14:38:58.294618Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=7702713015953616 dp_rank=0, logit: 113.344, cached blocks: 0, tree size: 0
-2026-02-16T14:38:59.632506Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=7702713015953616 dp_rank=0, logit: 167.312, cached blocks: 0, tree size: 0
-2026-02-16T14:39:00.157269Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=4467334888485367 dp_rank=0, logit: 201.594, cached blocks: 0, tree size: 0
-2026-02-16T14:39:01.315568Z  INFO dynamo_llm::kv_router::scheduler: Selected worker: worker_id=4467334888485367 dp_rank=0, logit: 146.219, cached blocks: 0, tree size: 0
+With TP=4, each GPU handles `8 / 4 = 2` KV heads.
 
-The router falls back to pure load-based scheduling with zero cache affinity.
+Per-token KV cache per GPU:
 
-## Investigation Tasks
+```
+= 2 (K and V matrices)
+× 2 (KV heads per GPU)
+× 128 (head dimension)
+× 80 (layers)
+× 1 byte (FP8 dtype)
 
-Work through these systematically. Use `kubectl`, log inspection, config file review, and any Dynamo CLI/API tools available in the environment.
+= 40,960 bytes
+= 40 KB per token per GPU
+```
 
-### 1. Understand the Current Configuration
+Note: If BF16 KV cache were used instead of FP8, this would double to 80 KB per token per GPU. FP8 KV cache is a significant concurrency multiplier with minimal quality impact for chat workloads.
 
-- Find and review the Dynamo deployment configuration (YAML, TOML, or however it's configured). Identify settings related to:
-  - KV cache block size / token block size on the engine side
-  - KV cache memory allocation (`kv_cache_free_gpu_mem_fraction` or equivalent TRT-LLM setting)
-  - Router-side settings for the KV indexer (cache TTL, max tree size, block size assumptions, sync intervals)
-  - Any prefix caching or KV cache reuse flags on the TRT-LLM engine
-- Identify the model being served and its memory footprint relative to available GPU memory per worker
-- Check GPU memory utilization on each worker: `nvidia-smi` or DCGM metrics
+## Theoretical Token Capacity
 
-### 2. Diagnose the Sync Failure
+```
+57.5 GB / 40 KB per token = ~1,437,500 total tokens in KV cache per GPU
+```
 
-- Examine how the router receives block store/evict notifications from workers (push-based via NATS/etcd/gRPC, or polling?)
-- Check if there's a communication backlog or latency between engine eviction events and router index updates
-- Look at the rate of eviction warnings vs. store warnings — if evictions vastly outnumber stores, the cache is churning too fast for the tree to stabilize
-- Check if there's a block size or hash mismatch between what TRT-LLM reports and what the Dynamo router expects
+Since all GPUs are sharded symmetrically, the system-wide token capacity equals the per-GPU capacity.
 
-### 3. Assess Memory Pressure
+## Converting Tokens to Concurrent Sequences
 
-- Determine the effective KV cache budget per GPU after model weights are loaded
-- Calculate approximate KV cache capacity in blocks/tokens for the running model
-- Check concurrent request volume and average sequence length — are active sequences consuming most of the available cache, leaving no room for retained entries?
-- Review if `max_num_seqs` or batch size settings are too aggressive for the available KV cache memory
+Not every sequence occupies the full `max_seq_len` at any given moment. For an interactive chat workload, the average KV cache occupancy per sequence is typically 20–30% of max_seq_len. This is because:
 
-### 4. Identify Potential Fixes
+- Most chat turns involve relatively short prompts (500–2,000 tokens) and short outputs (200–500 tokens)
+- Sequences arrive and complete at different times, so the mix includes sequences at various stages
+- Few sequences ever approach the 16K ceiling in normal chat usage
 
-Based on findings, evaluate these remediation paths:
+Using a utilization factor of 0.25 (middle estimate for chat):
 
-- **Reduce memory pressure**: Lower `max_num_seqs` / max batch size to leave more KV cache headroom for retention
-- **Increase KV cache allocation**: Adjust `kv_cache_free_gpu_mem_fraction` upward if model weights leave room
-- **Block size alignment**: Ensure the router's expected block size matches the engine's actual block size
-- **Eviction policy tuning**: Check if TRT-LLM or Dynamo has configurable eviction policies (LRU vs. size-based) or minimum retention guarantees
-- **Reduce concurrent load during testing**: Test with very low concurrency (1-2 requests) to confirm the tree can stabilize when there's no memory pressure
+```
+Average KV occupancy per sequence = 16,384 × 0.25 = 4,096 tokens
 
-## Constraints
+Theoretical max concurrent sequences = 1,437,500 / 4,096 ≈ 351
+```
 
-- Don't restart or redeploy anything without showing me the proposed changes first
-- Prefer diagnostic/read-only operations before making any modifications
+## Applying a Latency Constraint
+
+For interactive chat (where users are waiting for responses), you cannot run at the theoretical memory ceiling. Higher batch sizes increase per-token decode latency because each forward pass processes more sequences. A practical rule of thumb for interactive workloads is to operate at 50–70% of the memory ceiling.
+
+```
+Latency-adjusted estimate = 351 × 0.60 ≈ 210
+```
+
+Even with very conservative assumptions (higher utilization factor of 0.35, aggressive latency haircut of 0.50):
+
+```
+Conservative floor = 1,437,500 / (16,384 × 0.35) × 0.50 ≈ 125
+```
+
+## Recommended Starting Point
+
+| Scenario | Estimated Max Batch Size |
+|---|---|
+| Theoretical memory ceiling (0.85 fraction) | ~275 |
+| Practical for interactive chat | ~100–170 |
+| Conservative starting point | ~64–96 |
+| Current setting (8–12) | **~3–5% utilization of available capacity** |
+
+**Recommended `--max-batch-size`: start at 64, tune upward based on load testing.**
+**`--max-num-tokens` is being set to 16384, which pairs well with batch sizes up to ~64.**
+
+## Why 8 or 12 Is Too Low
+
+A batch size of 8 on this hardware means:
+
+- Maximum of 8 × 16,384 = 131,072 tokens in KV cache (if every sequence were at max length)
+- But realistically ~8 × 4,096 = 32,768 tokens in KV cache at any moment
+- That consumes roughly 32,768 × 40 KB = **1.3 GB** of the **57.5 GB** available for KV cache per GPU
+- GPU memory utilization during decode: **~2%** of KV cache capacity
+- GPU compute utilization during decode: extremely low — the GPU is mostly idle between tokens
+
+At batch_size=8, the GPUs are spending the vast majority of their time waiting. The memory bandwidth and compute available on 4× H100 can service 10–15× more concurrent sequences before becoming the bottleneck.
+
+## TRT-LLM Specific Notes (Dynamo Runtime)
+
+The deployment uses the Dynamo TRT-LLM runtime (`dynamo.trtllm`), which handles engine compilation internally. Key parameters are set as CLI flags at container startup and can be changed without a manual engine rebuild:
+
+- `--max-batch-size` is a **runtime CLI flag**, not a compile-time constant. Changing it requires a pod restart, not a lengthy engine recompilation.
+- `--max-num-tokens` caps the total tokens processed per scheduler iteration (across all sequences in the batch, including both prefill and decode tokens). This is being increased from 8192 to 16384, which is appropriate for higher batch sizes — at batch_size=64 with mixed prefill/decode, 16384 tokens per iteration provides reasonable headroom. If batch size is pushed significantly higher (96+), this may need to increase further to avoid prefill stalls.
+- `--free-gpu-memory-fraction 0.85` limits TRT-LLM to 85% of each GPU's 80 GB (= 68 GB usable). This affects the KV cache budget calculation (see adjusted numbers below).
+- `kv_cache_config.dtype: fp8` is correctly set, which halves KV cache memory per token compared to BF16.
+- `enable_chunked_prefill: true` allows long prompts to be chunked across iterations, which works well with continuous batching but interacts with `max-num-tokens` as the per-iteration token budget.
+
+## Adjusted Memory Budget (Accounting for free-gpu-memory-fraction=0.85)
+
+```
+Per GPU Memory Budget:
+  Usable HBM (80 GB × 0.85):       68.0 GB
+  Model weights (70 GB FP8 / 4):   -17.5 GB
+  CUDA context + activations:       -5.0 GB
+  ─────────────────────────────────────────
+  Available for KV cache:           ~45.5 GB
+```
+
+Revised token capacity:
+
+```
+45.5 GB / 40 KB per token = ~1,137,500 total tokens in KV cache per GPU
+```
+
+Revised concurrent sequences (chat, utilization factor 0.25, latency haircut 0.60):
+
+```
+1,137,500 / (16,384 × 0.25) × 0.60 ≈ 167
+```
+
+Conservative floor: ~96–128. The hardware can comfortably support this range even with the 0.85 memory fraction.
+
+## Validation Approach
+
+After adjusting the batch size:
+
+1. Run a load test with realistic chat traffic patterns (varied prompt lengths, typical output lengths)
+2. Monitor TTFT (time to first token) — should be <500ms for interactive chat
+3. Monitor ITL (inter-token latency) — should be <50ms for smooth streaming
+4. Monitor GPU KV cache utilization — should be 40–70% at steady-state peak load
+5. Increase batch size until latency SLAs are breached, then back off 20–30%
+
+## Summary
+
+The current batch size of 8–12 leaves >90% of the KV cache capacity unused on 4× H100 with Llama 70B FP8 (even accounting for the 0.85 GPU memory fraction). A starting point of 64–96 is well-supported by the memory math. `--max-num-tokens` is being increased to 16384, which is well-suited for batch sizes in the 64 range. Since the Dynamo runtime accepts `--max-batch-size` as a CLI flag, changes require only a pod restart — there is no lengthy engine recompilation step.
