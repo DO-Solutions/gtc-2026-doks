@@ -2,6 +2,7 @@ import type { AppConfig } from '../config.js';
 import type { ChatMessage, ChatPassage, RequestMetrics } from '../types.js';
 import { sendStreamingRequestWithCapture, type InferenceRequest } from '../dynamo-client.js';
 import { BaseRunner } from './base-runner.js';
+import type { ConversationStore } from '../conversation-store.js';
 
 const SYSTEM_PROMPT =
   'You are a knowledgeable assistant. Engage thoughtfully with the user\'s questions, providing detailed explanations.';
@@ -16,11 +17,13 @@ export type TurnCallback = (metrics: RequestMetrics) => void;
 export class ChatRunner extends BaseRunner {
   private passages: ChatPassage[];
   private onTurnComplete: TurnCallback;
+  private conversationStore: ConversationStore;
 
-  constructor(config: AppConfig, passages: ChatPassage[], onTurnComplete: TurnCallback) {
+  constructor(config: AppConfig, passages: ChatPassage[], onTurnComplete: TurnCallback, conversationStore: ConversationStore) {
     super(config, 'a');
     this.passages = passages;
     this.onTurnComplete = onTurnComplete;
+    this.conversationStore = conversationStore;
   }
 
   corpusSize(): number {
@@ -46,6 +49,7 @@ export class ChatRunner extends BaseRunner {
   async run(): Promise<RequestMetrics> {
     const passage = this.passages[Math.floor(Math.random() * this.passages.length)];
     const turnCount = 5;
+    const conversationId = `${passage.id}-${Date.now()}`;
 
     const history: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -55,10 +59,13 @@ export class ChatRunner extends BaseRunner {
       },
     ];
 
+    this.conversationStore.start(conversationId, passage.topic);
+
     let lastMetrics: RequestMetrics | null = null;
 
     for (let turn = 0; turn < turnCount; turn++) {
       const itemId = `${passage.id}-t${turn}`;
+      const userMessage = history[history.length - 1].content;
 
       const result = await sendStreamingRequestWithCapture(this.config, {
         workload: 'a',
@@ -70,11 +77,25 @@ export class ChatRunner extends BaseRunner {
       lastMetrics = result.metrics;
 
       if (result.metrics.status === 'error') {
+        this.conversationStore.addTurn(conversationId, {
+          turnNumber: turn,
+          userMessage,
+          assistantMessage: '',
+          metrics: result.metrics,
+        });
+        this.conversationStore.error(conversationId);
         return result.metrics;
       }
 
       // Append assistant response to history
       history.push({ role: 'assistant', content: result.responseText });
+
+      this.conversationStore.addTurn(conversationId, {
+        turnNumber: turn,
+        userMessage,
+        assistantMessage: result.responseText,
+        metrics: result.metrics,
+      });
 
       // Report intermediate turns (all except last)
       if (turn < turnCount - 1) {
@@ -86,6 +107,7 @@ export class ChatRunner extends BaseRunner {
       }
     }
 
+    this.conversationStore.complete(conversationId);
     return lastMetrics!;
   }
 

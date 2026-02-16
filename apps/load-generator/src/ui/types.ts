@@ -77,3 +77,34 @@ export interface ServerStatus {
   };
   metrics: AggregateMetrics | null;
 }
+
+// ---------------------------------------------------------------------------
+// Conversation records (for conversation viewer)
+// ---------------------------------------------------------------------------
+
+export interface TurnRecord {
+  turnNumber: number;
+  userMessage: string;
+  assistantMessage: string;
+  metrics: RequestMetrics;
+}
+
+export interface ConversationRecord {
+  id: string;
+  topic: string;
+  status: 'active' | 'completed' | 'error';
+  startedAt: number;
+  completedAt: number | null;
+  turns: TurnRecord[];
+  totalDurationMs: number | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  topic: string;
+  status: 'active' | 'completed' | 'error';
+  startedAt: number;
+  completedAt: number | null;
+  turnCount: number;
+  totalDurationMs: number | null;
+}

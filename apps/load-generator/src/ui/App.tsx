@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import { useTurnMetrics } from './hooks/useTurnMetrics';
+import { useHashRouter } from './hooks/useHashRouter';
 import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
 import { DemoControls } from './components/DemoControls';
 import { ScenarioPresets } from './components/ScenarioPresets';
 import { MetricsPanel } from './components/MetricsPanel';
 import { KVCacheInsight } from './components/KVCacheInsight';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
+import { ConversationList } from './components/ConversationList';
+import { ConversationDetail } from './components/ConversationDetail';
 import type { WorkloadConfig } from './types';
 
 const DEFAULT_CONFIG: WorkloadConfig = {
@@ -18,6 +21,7 @@ const DEFAULT_CONFIG: WorkloadConfig = {
 export function App() {
   const ws = useMetrics();
   const turnMetrics = useTurnMetrics(ws.lastRequest, ws.lastRequestId, ws.running);
+  const { route, navigate } = useHashRouter();
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
   const [uptimeMs, setUptimeMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +95,23 @@ export function App() {
   return (
     <>
       <header className="header">
-        <h1>KV Cache-Aware Routing Demo</h1>
+        <div className="header-left">
+          <h1>KV Cache-Aware Routing Demo</h1>
+          <nav className="header-nav">
+            <a
+              href="#/"
+              className={`nav-link ${route.page === 'dashboard' ? 'nav-link-active' : ''}`}
+            >
+              Dashboard
+            </a>
+            <a
+              href="#/conversations"
+              className={`nav-link ${route.page !== 'dashboard' ? 'nav-link-active' : ''}`}
+            >
+              Conversations
+            </a>
+          </nav>
+        </div>
         <div className="header-status">
           <div
             className={`status-dot ${ws.connected ? (ws.running ? 'running' : 'connected') : ''}`}
@@ -106,56 +126,68 @@ export function App() {
         </div>
       </header>
 
-      {error && (
-        <div
-          style={{
-            background: 'rgba(229,57,53,0.15)',
-            border: '1px solid var(--accent-red)',
-            borderRadius: 'var(--radius)',
-            padding: '10px 16px',
-            marginBottom: 16,
-            fontSize: '0.875rem',
-          }}
-        >
-          {error}
-        </div>
+      {route.page === 'dashboard' && (
+        <>
+          {error && (
+            <div
+              style={{
+                background: 'rgba(229,57,53,0.15)',
+                border: '1px solid var(--accent-red)',
+                borderRadius: 'var(--radius)',
+                padding: '10px 16px',
+                marginBottom: 16,
+                fontSize: '0.875rem',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="actions">
+            <button
+              className="btn btn-start"
+              disabled={!ws.connected || ws.running}
+              onClick={handleStart}
+            >
+              Start
+            </button>
+            <button
+              className="btn btn-stop"
+              disabled={!ws.connected || !ws.running}
+              onClick={handleStop}
+            >
+              Stop
+            </button>
+          </div>
+
+          <div className="main-grid">
+            <div className="card">
+              <h2>Demo Controls</h2>
+              <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={false} />
+              <DemoControls
+                config={localConfig}
+                running={ws.running}
+                onConfigChange={handleConfigChange}
+                disabled={false}
+              />
+            </div>
+
+            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} kvCacheHitRate={ws.infrastructure?.kvCacheHitRate ?? null} />
+          </div>
+
+          <MetricsPanel metrics={ws.metrics} running={ws.running} />
+
+          <InfrastructurePanel infra={ws.infrastructure} />
+        </>
       )}
 
-      <div className="actions">
-        <button
-          className="btn btn-start"
-          disabled={!ws.connected || ws.running}
-          onClick={handleStart}
-        >
-          Start
-        </button>
-        <button
-          className="btn btn-stop"
-          disabled={!ws.connected || !ws.running}
-          onClick={handleStop}
-        >
-          Stop
-        </button>
-      </div>
+      {route.page === 'conversations' && (
+        <ConversationList navigate={navigate} />
+      )}
 
-      <div className="main-grid">
-        <div className="card">
-          <h2>Demo Controls</h2>
-          <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={false} />
-          <DemoControls
-            config={localConfig}
-            running={ws.running}
-            onConfigChange={handleConfigChange}
-            disabled={false}
-          />
-        </div>
-
-        <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} kvCacheHitRate={ws.infrastructure?.kvCacheHitRate ?? null} />
-      </div>
-
-      <MetricsPanel metrics={ws.metrics} running={ws.running} />
-
-      <InfrastructurePanel infra={ws.infrastructure} />
+      {route.page === 'conversation-detail' && (
+        <ConversationDetail conversationId={route.conversationId} navigate={navigate} />
+      )}
     </>
   );
 }

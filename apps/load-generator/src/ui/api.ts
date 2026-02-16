@@ -1,4 +1,4 @@
-import type { ServerStatus, WorkloadConfig } from './types';
+import type { ServerStatus, WorkloadConfig, ConversationSummary, ConversationRecord } from './types';
 
 export async function fetchStatus(): Promise<ServerStatus> {
   const res = await fetch('/api/status');
@@ -36,4 +36,16 @@ export async function updateConfig(config: Partial<WorkloadConfig>): Promise<voi
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `POST /api/workload/config failed: ${res.status}`);
   }
+}
+
+export async function fetchConversations(): Promise<ConversationSummary[]> {
+  const res = await fetch('/api/conversations');
+  if (!res.ok) throw new Error(`GET /api/conversations failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchConversation(id: string): Promise<ConversationRecord> {
+  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`GET /api/conversations/${id} failed: ${res.status}`);
+  return res.json();
 }

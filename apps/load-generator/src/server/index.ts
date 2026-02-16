@@ -14,6 +14,7 @@ import { SummarizationRunner } from './workloads/summarization.js';
 import { ReasoningRunner } from './workloads/reasoning.js';
 import { ChatRunner } from './workloads/chat.js';
 import { InfraCollector } from './infra-collector.js';
+import { ConversationStore } from './conversation-store.js';
 import type { BaseRunner } from './workloads/base-runner.js';
 import type {
   RequestMetrics,
@@ -58,6 +59,7 @@ let startTime: number | null = null;
 const metrics = new MetricsAggregator(config.metricsWindowSec);
 const runners = new Map<WorkloadType, BaseRunner>();
 const infraCollector = new InfraCollector(config);
+const conversationStore = new ConversationStore();
 let lastInfra: InfrastructureMetrics | null = null;
 
 // Corpus counts (set after loading)
@@ -169,6 +171,23 @@ app.post('/api/workload/config', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Conversation viewer API
+// ---------------------------------------------------------------------------
+
+app.get('/api/conversations', (_req, res) => {
+  res.json(conversationStore.list());
+});
+
+app.get('/api/conversations/:id', (req, res) => {
+  const record = conversationStore.get(req.params.id);
+  if (!record) {
+    res.status(404).json({ error: 'Conversation not found' });
+    return;
+  }
+  res.json(record);
+});
+
+// ---------------------------------------------------------------------------
 // Static UI serving
 // ---------------------------------------------------------------------------
 
@@ -191,7 +210,7 @@ async function main(): Promise<void> {
   };
 
   if (corpus.chatPassages.length > 0) {
-    runners.set('a', new ChatRunner(config, corpus.chatPassages, onComplete));
+    runners.set('a', new ChatRunner(config, corpus.chatPassages, onComplete, conversationStore));
   }
   if (corpus.summarizationDocs.length > 0) {
     runners.set('b', new SummarizationRunner(config, corpus.summarizationDocs));
