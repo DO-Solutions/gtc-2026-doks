@@ -129,12 +129,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         }
@@ -166,12 +166,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         }
@@ -194,7 +194,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(trtllm_request_queue_time_seconds_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) / sum(rate(trtllm_request_queue_time_seconds_count{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m]))",
+          "expr": "sum(rate(trtllm_request_queue_time_seconds_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) / sum(rate(trtllm_request_queue_time_seconds_count{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m]))",
           "legendFormat": "avg",
           "refId": "A"
         }
@@ -224,7 +224,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(dynamo_frontend_cached_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m]) / rate(dynamo_frontend_input_sequence_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])",
+          "expr": "rate(dynamo_frontend_cached_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m]) / rate(dynamo_frontend_input_sequence_tokens_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])",
           "legendFormat": "Cache Hit Rate",
           "refId": "A"
         }
@@ -296,7 +296,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(dynamo_frontend_request_duration_seconds_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m])) / sum(rate(dynamo_frontend_request_duration_seconds_count{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[5m]))",
+          "expr": "sum(rate(dynamo_frontend_request_duration_seconds_sum{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m])) / sum(rate(dynamo_frontend_request_duration_seconds_count{dynamo_namespace=\"dynamo-workload-gtc-demo\"}[1m]))",
           "legendFormat": "avg",
           "refId": "A"
         }
