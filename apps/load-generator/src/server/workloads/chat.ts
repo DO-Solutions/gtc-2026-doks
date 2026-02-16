@@ -42,7 +42,7 @@ export class ChatRunner extends BaseRunner {
           content: `Here is some information about ${passage.topic}:\n\n${passage.text}\n\nPlease explain the key concepts discussed in this passage.`,
         },
       ],
-      maxTokens: 512,
+      maxTokens: 1024,
     };
   }
 
@@ -71,7 +71,7 @@ export class ChatRunner extends BaseRunner {
         workload: 'a',
         itemId,
         messages: [...history],
-        maxTokens: 512,
+        maxTokens: 1024,
       });
 
       lastMetrics = result.metrics;
