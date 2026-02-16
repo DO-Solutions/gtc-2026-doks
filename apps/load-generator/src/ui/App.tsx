@@ -4,7 +4,7 @@ import { useTurnMetrics } from './hooks/useTurnMetrics';
 import { useHashRouter } from './hooks/useHashRouter';
 import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
 import { DemoControls } from './components/DemoControls';
-import { ScenarioPresets } from './components/ScenarioPresets';
+
 import { MetricsPanel } from './components/MetricsPanel';
 import { KVCacheInsight } from './components/KVCacheInsight';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
@@ -15,7 +15,7 @@ import type { WorkloadConfig } from './types';
 const DEFAULT_CONFIG: WorkloadConfig = {
   totalRPS: 10,
   mix: { a: 1.0 },
-  maxConcurrency: 35,
+  maxConcurrency: 40,
 };
 
 export function App() {
@@ -163,7 +163,6 @@ export function App() {
           <div className="main-grid">
             <div className="card">
               <h2>Demo Controls</h2>
-              <ScenarioPresets onSelect={handleConfigChange} running={ws.running} disabled={false} />
               <DemoControls
                 config={localConfig}
                 running={ws.running}

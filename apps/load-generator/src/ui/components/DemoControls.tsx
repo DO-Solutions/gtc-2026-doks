@@ -43,11 +43,11 @@ export function DemoControls({ config, running, onConfigChange, disabled }: Prop
         </div>
         <input
           type="range"
-          min={1}
-          max={60}
-          step={1}
+          min={20}
+          max={120}
+          step={20}
           value={config.maxConcurrency}
-          disabled={disabled || !running}
+          disabled={disabled}
           onChange={(e) => debounced({ maxConcurrency: parseInt(e.target.value) })}
         />
       </div>
