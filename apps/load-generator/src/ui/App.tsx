@@ -172,7 +172,7 @@ export function App() {
               />
             </div>
 
-            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} kvCacheHitRate={ws.infrastructure?.kvCacheHitRate ?? null} />
+            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} />
           </div>
 
           <MetricsPanel metrics={ws.metrics} running={ws.running} />

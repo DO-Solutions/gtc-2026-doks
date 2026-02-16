@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RequestMetrics } from '../types';
 
 const WINDOW_MS = 60_000;
-const TURN_REGEX = /-t(\d+)$/;
 
 export interface TurnBucketStats {
   count: number;
@@ -12,11 +11,7 @@ export interface TurnBucketStats {
 }
 
 export interface TurnMetrics {
-  firstTurn: TurnBucketStats;
-  followUpTurns: TurnBucketStats;
-  speedupRatio: number;
-  totalConversations: number;
-  totalTurns: number;
+  allTurns: TurnBucketStats;
 }
 
 interface Sample {
@@ -49,7 +44,6 @@ function computeStats(values: number[]): TurnBucketStats {
 
 function pruneAndExtract(samples: Sample[]): number[] {
   const cutoff = Date.now() - WINDOW_MS;
-  // Remove expired samples in-place
   let i = 0;
   while (i < samples.length && samples[i].completedAt < cutoff) i++;
   if (i > 0) samples.splice(0, i);
@@ -61,50 +55,21 @@ export function useTurnMetrics(
   lastRequestId: number,
   running: boolean,
 ): TurnMetrics {
-  const firstTurnValues = useRef<Sample[]>([]);
-  const followUpValues = useRef<Sample[]>([]);
-  const conversationIds = useRef<Set<string>>(new Set());
-  const totalTurnsRef = useRef(0);
+  const allValues = useRef<Sample[]>([]);
   const prevRunning = useRef(false);
 
   const [metrics, setMetrics] = useState<TurnMetrics>({
-    firstTurn: EMPTY_BUCKET,
-    followUpTurns: EMPTY_BUCKET,
-    speedupRatio: 0,
-    totalConversations: 0,
-    totalTurns: 0,
+    allTurns: EMPTY_BUCKET,
   });
 
   const recompute = useCallback(() => {
-    const firstVals = pruneAndExtract(firstTurnValues.current);
-    const followVals = pruneAndExtract(followUpValues.current);
-    const firstStats = computeStats(firstVals);
-    const followUpStats = computeStats(followVals);
-    const ratio =
-      followUpStats.p50TTFT > 0 ? firstStats.p50TTFT / followUpStats.p50TTFT : 0;
-
-    setMetrics({
-      firstTurn: firstStats,
-      followUpTurns: followUpStats,
-      speedupRatio: ratio,
-      totalConversations: conversationIds.current.size,
-      totalTurns: totalTurnsRef.current,
-    });
+    const vals = pruneAndExtract(allValues.current);
+    setMetrics({ allTurns: computeStats(vals) });
   }, []);
 
-  // Reset when running transitions to true
   const reset = useCallback(() => {
-    firstTurnValues.current = [];
-    followUpValues.current = [];
-    conversationIds.current = new Set();
-    totalTurnsRef.current = 0;
-    setMetrics({
-      firstTurn: EMPTY_BUCKET,
-      followUpTurns: EMPTY_BUCKET,
-      speedupRatio: 0,
-      totalConversations: 0,
-      totalTurns: 0,
-    });
+    allValues.current = [];
+    setMetrics({ allTurns: EMPTY_BUCKET });
   }, []);
 
   useEffect(() => {
@@ -114,37 +79,17 @@ export function useTurnMetrics(
     prevRunning.current = running;
   }, [running, reset]);
 
-  // 1-second interval to expire stale samples
   useEffect(() => {
     if (!running) return;
     const id = setInterval(recompute, 1000);
     return () => clearInterval(id);
   }, [running, recompute]);
 
-  // Process each new request
   useEffect(() => {
     if (!lastRequest || lastRequest.status !== 'ok') return;
+    if (lastRequest.ttftMs <= 0) return;
 
-    const itemId = lastRequest.itemId;
-    if (!itemId) return;
-
-    const match = itemId.match(TURN_REGEX);
-    if (!match) return;
-
-    const turnNum = parseInt(match[1], 10);
-    const conversationId = itemId.replace(TURN_REGEX, '');
-
-    conversationIds.current.add(conversationId);
-    totalTurnsRef.current++;
-
-    const sample: Sample = { ttftMs: lastRequest.ttftMs, completedAt: Date.now() };
-
-    if (turnNum === 0) {
-      firstTurnValues.current.push(sample);
-    } else {
-      followUpValues.current.push(sample);
-    }
-
+    allValues.current.push({ ttftMs: lastRequest.ttftMs, completedAt: Date.now() });
     recompute();
   }, [lastRequestId, recompute]); // eslint-disable-line react-hooks/exhaustive-deps
 
