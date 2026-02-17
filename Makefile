@@ -37,7 +37,7 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-kv-cache validate-all \
-	capacity-test
+	capacity-test benchmark-sweep
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -245,5 +245,9 @@ test-kv-cache: ## Test KV cache hit behavior
 
 capacity-test: ## Run staircase capacity test (find max concurrency/RPS)
 	scripts/capacity-test.sh --context $(CONTEXT) --output-dir dev
+
+benchmark-sweep: ## Run A/B benchmark: KV-aware vs round-robin routing (~65 min)
+	scripts/benchmark-sweep.sh --context $(CONTEXT) --output-dir dev
+	python3 scripts/generate-benchmark-report.py --input 'dev/benchmark-sweep-*.tsv' --output-dir dev
 
 validate-all: test-inference test-kv-cache ## Run all validation tests

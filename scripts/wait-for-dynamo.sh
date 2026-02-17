@@ -6,7 +6,7 @@ INTERVAL=15
 CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
 NAMESPACE="dynamo-workload"
 LABEL="nvidia.com/dynamo-graph-deployment-name=gtc-demo"
-EXPECTED=3
+EXPECTED=5
 
 elapsed=0
 

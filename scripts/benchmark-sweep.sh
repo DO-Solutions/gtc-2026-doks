@@ -95,11 +95,10 @@ cleanup() {
   # Stop workload
   curl -sf -X POST "http://localhost:${LOADGEN_PORT}/api/workload/stop" \
     >/dev/null 2>&1 || true
-  # Restore routing mode (only if we changed it)
-  if $MODE_CHANGED && [[ -n "$ORIGINAL_MODE" ]]; then
-    info "Restoring routing mode → ${ORIGINAL_MODE}"
-    set_routing_mode "$ORIGINAL_MODE" 2>/dev/null || true
-    ORIGINAL_MODE=""
+  # Restore to kv mode (only if we changed it)
+  if $MODE_CHANGED; then
+    info "Restoring routing mode → kv"
+    set_routing_mode "kv" 2>/dev/null || true
   fi
   # Kill port-forwards
   for pid in "${PIDS_TO_KILL[@]}"; do
@@ -315,6 +314,24 @@ wait_for_dgd_pods() {
   return 1
 }
 
+# ── Pod restart helpers ───────────────────────────────────────────────────
+restart_worker_pods() {
+  info "Deleting worker pods to force restart..."
+  kubectl --context "$CONTEXT" delete pods -n "$NAMESPACE" \
+    -l "${DGD_LABEL},nvidia.com/dynamo-component-type=main" \
+    --wait=false 2>/dev/null || true
+  sleep 5
+  wait_for_dgd_pods 5 600
+}
+
+restart_all_dgd_pods() {
+  info "Deleting ALL DGD pods (frontend + workers) to force fresh start..."
+  kubectl --context "$CONTEXT" delete pods -n "$NAMESPACE" \
+    -l "$DGD_LABEL" --wait=false 2>/dev/null || true
+  sleep 5
+  wait_for_dgd_pods 5 600
+}
+
 # ── Format helpers ────────────────────────────────────────────────────────────
 fmt_sec() {
   python3 -c "
@@ -351,21 +368,11 @@ if $DRY_RUN; then
   echo "Warmup:        ${WARMUP_SEC}s per level"
   echo "Measurement:   ${MEASURE_SEC}s per level (${SNAPSHOT_COUNT} snapshots @ ${SNAPSHOT_INTERVAL}s)"
   echo ""
-  if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
-    echo "Phase 1: Round-robin baseline"
-    echo "  - Patch DGD to round_robin"
-    echo "  - Wait for frontend restart"
-    for lvl in "${LEVEL_ARRAY[@]}"; do
-      echo "  - Concurrency ${lvl}: ${WARMUP_SEC}s warmup + ${MEASURE_SEC}s measure"
-    done
-    echo "  - Stop workload, cooldown 30s"
-    echo ""
-  fi
   if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
-    echo "Phase 2: KV-aware routing"
+    echo "Phase 1: KV-aware routing"
     if [[ "$MODE" == "both" ]]; then
-      echo "  - Patch DGD to kv"
-      echo "  - Wait for frontend restart"
+      echo "  - Verify cluster in kv mode (deployed default)"
+      echo "  - If not: patch to kv, restart worker pods"
     else
       echo "  - (cluster already in kv mode, no restart)"
     fi
@@ -373,11 +380,21 @@ if $DRY_RUN; then
     for lvl in "${LEVEL_ARRAY[@]}"; do
       echo "  - Concurrency ${lvl}: ${WARMUP_SEC}s warmup + ${MEASURE_SEC}s measure"
     done
+    echo "  - Stop workload, cooldown 30s"
+    echo ""
+  fi
+  if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
+    echo "Phase 2: Round-robin baseline"
+    echo "  - Patch DGD to round_robin"
+    echo "  - Wait for frontend restart"
+    for lvl in "${LEVEL_ARRAY[@]}"; do
+      echo "  - Concurrency ${lvl}: ${WARMUP_SEC}s warmup + ${MEASURE_SEC}s measure"
+    done
     echo "  - Stop workload"
     echo ""
   fi
   if [[ "$MODE" == "both" ]]; then
-    echo "Restore original routing mode"
+    echo "Restore to kv mode + restart all DGD pods"
     echo ""
   fi
   local_per_phase=$(( ${#LEVEL_ARRAY[@]} * (WARMUP_SEC + MEASURE_SEC + 10) ))
@@ -431,12 +448,12 @@ if [[ "$GPU_NODES" -eq 0 ]]; then
 fi
 info "  ${GPU_NODES} GPU node(s) ready"
 
-# DGD pods (frontend + 2 workers = 3)
+# DGD pods (frontend + 4 workers = 5)
 DGD_PODS=$(kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" \
   -l "$DGD_LABEL" --field-selector=status.phase=Running \
   --no-headers 2>/dev/null | wc -l)
-if [[ "$DGD_PODS" -lt 3 ]]; then
-  warn "Expected >=3 DGD pods (frontend + 2 workers), found ${DGD_PODS}"
+if [[ "$DGD_PODS" -lt 5 ]]; then
+  warn "Expected >=5 DGD pods (frontend + 4 workers), found ${DGD_PODS}"
   kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" -l "$DGD_LABEL" --no-headers
 fi
 info "  ${DGD_PODS} DGD pod(s) running"
@@ -537,12 +554,51 @@ run_phase() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Phase 1: Round-robin baseline
+# Phase 1: KV-aware routing
+# ══════════════════════════════════════════════════════════════════════════════
+if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  Phase 1: KV-aware routing"
+  echo "═══════════════════════════════════════════════════════════"
+
+  current_mode=$(get_routing_mode)
+  if [[ "$current_mode" == "kv" ]]; then
+    info "Already in kv mode — frontend has been tracking KV state since deploy"
+    wait_for_dgd_pods 5 300
+  else
+    # Not in KV mode — switch and restart workers so frontend tracks from start
+    set_routing_mode "kv"
+    MODE_CHANGED=true
+    verify_frontend_mode "kv" 180
+    restart_worker_pods
+  fi
+  sleep 10
+
+  # Prime KV cache: run 3 conversations at lowest concurrency
+  info "Priming KV cache (3 conversations at concurrency ${LEVEL_ARRAY[0]})..."
+  loadgen_start "${LEVEL_ARRAY[0]}" "$RPS"
+  sleep 30
+  loadgen_stop
+  sleep 5
+
+  run_phase "kv"
+
+  # Stop workload, cooldown between phases
+  loadgen_stop
+  if [[ "$MODE" == "both" ]]; then
+    info "Cooldown 30s between phases..."
+    sleep 30
+  fi
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 2: Round-robin baseline
 # ══════════════════════════════════════════════════════════════════════════════
 if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
   echo ""
   echo "═══════════════════════════════════════════════════════════"
-  echo "  Phase 1: Round-robin baseline"
+  echo "  Phase 2: Round-robin baseline"
   echo "═══════════════════════════════════════════════════════════"
 
   current_mode=$(get_routing_mode)
@@ -555,49 +611,10 @@ if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
   fi
 
   # Wait for workers to be stable after any frontend restart
-  wait_for_dgd_pods 3 300
+  wait_for_dgd_pods 5 300
   sleep 10
 
   run_phase "round_robin"
-
-  # Stop workload, cooldown between phases
-  loadgen_stop
-  if [[ "$MODE" == "both" ]]; then
-    info "Cooldown 30s between phases..."
-    sleep 30
-  fi
-fi
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Phase 2: KV-aware routing
-# ══════════════════════════════════════════════════════════════════════════════
-if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
-  echo ""
-  echo "═══════════════════════════════════════════════════════════"
-  echo "  Phase 2: KV-aware routing"
-  echo "═══════════════════════════════════════════════════════════"
-
-  if [[ "$MODE" == "both" ]]; then
-    # Full A/B: switch from round_robin → kv
-    set_routing_mode "kv"
-    MODE_CHANGED=true
-    verify_frontend_mode "kv" 180
-    wait_for_dgd_pods 3 300
-    sleep 10
-  else
-    # KV-only: cluster already in kv mode, just verify pods are ready
-    info "Single-mode run — cluster already in kv mode, skipping mode switch"
-    wait_for_dgd_pods 3 300
-  fi
-
-  # Prime KV cache: run 3 conversations at lowest concurrency
-  info "Priming KV cache (3 conversations at concurrency ${LEVEL_ARRAY[0]})..."
-  loadgen_start "${LEVEL_ARRAY[0]}" "$RPS"
-  sleep 30
-  loadgen_stop
-  sleep 5
-
-  run_phase "kv"
 
   # Stop workload
   loadgen_stop
@@ -607,11 +624,15 @@ fi
 # Restore & summarize
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Restore original routing mode (only if we changed it)
-if $MODE_CHANGED && [[ "$(get_routing_mode)" != "$ORIGINAL_MODE" ]]; then
-  info "Restoring routing mode → ${ORIGINAL_MODE}"
-  set_routing_mode "$ORIGINAL_MODE"
-  verify_frontend_mode "$ORIGINAL_MODE" 120
+# Restore to kv mode (default) and restart all pods for fresh KV tracking
+if $MODE_CHANGED; then
+  if [[ "$(get_routing_mode)" != "kv" ]]; then
+    info "Restoring routing mode → kv"
+    set_routing_mode "kv"
+    verify_frontend_mode "kv" 120
+  fi
+  info "Restarting all DGD pods so frontend tracks KV state from fresh start..."
+  restart_all_dgd_pods
 fi
 ORIGINAL_MODE=""    # Clear so trap doesn't double-restore
 MODE_CHANGED=false

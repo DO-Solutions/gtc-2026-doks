@@ -27,7 +27,7 @@ const ttftAllSummary = new client.Summary({
   name: 'loadgen_ttft_all_seconds',
   help: 'Time to first token for all requests (no turn-type split)',
   percentiles: [0.5, 0.95],
-  maxAgeSeconds: 300,
+  maxAgeSeconds: 60,
   ageBuckets: 5,
 });
 
