@@ -13,7 +13,7 @@
 
 ## What We're Building
 
-A booth demo for NVIDIA GTC showcasing **KV cache-aware routing** and **speculative decoding** on DigitalOcean GPU infrastructure. The demo runs two TP=4 replicas of Llama 3.1 70B Instruct FP8 on a single 8-GPU node, served through NVIDIA Dynamo with a TensorRT-LLM backend. KV-aware routing reduces TTFT on multi-turn conversations by directing follow-up requests to the replica already holding cached KV state. Speculative decoding (Phase 2+) reduces ITL by generating multiple tokens per forward pass. The system exposes a standard OpenAI-compatible API; all optimizations are infrastructure-side.
+A booth demo for NVIDIA GTC showcasing **KV cache-aware routing** and **speculative decoding** on DigitalOcean GPU infrastructure. The demo runs four TP=2 replicas of Llama 3.1 70B Instruct FP8 on a single 8-GPU node, served through NVIDIA Dynamo with a TensorRT-LLM backend. KV-aware routing reduces TTFT on multi-turn conversations by directing follow-up requests to the replica already holding cached KV state. Speculative decoding (Phase 2+) reduces ITL by generating multiple tokens per forward pass. The system exposes a standard OpenAI-compatible API; all optimizations are infrastructure-side.
 
 The key message: DigitalOcean's GPU infrastructure, combined with NVIDIA's inference stack, delivers measurably lower latency through intelligent routing and engine-level optimization — two layers of improvement that work together transparently.
 
@@ -34,29 +34,31 @@ These optimizations are complementary — KV-aware routing targets prefill (TTFT
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│              8x H100/H200 GPU Node                       │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │           Dynamo Frontend (Rust)                   │  │
-│  │  KV-aware router: routes multi-turn conversations │  │
-│  │  to the replica holding their cached KV state     │  │
-│  └──────────────┬──────────────┬─────────────────────┘  │
-│                 │              │                         │
-│                 ▼              ▼                         │
-│  ┌──────────────────┐  ┌──────────────────┐             │
-│  │  Replica A       │  │  Replica B       │             │
-│  │  TP=4 (GPUs 0-3) │  │  TP=4 (GPUs 4-7) │             │
-│  │  Llama 70B FP8   │  │  Llama 70B FP8   │             │
-│  └──────────────────┘  └──────────────────┘             │
-│                                                          │
-│  Infrastructure: etcd, NATS, Prometheus, Grafana         │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                 8x H100/H200 GPU Node                        │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │              Dynamo Frontend (Rust)                     │  │
+│  │  KV-aware router: routes multi-turn conversations      │  │
+│  │  to the replica holding their cached KV state          │  │
+│  └─────┬──────────┬──────────┬──────────┬─────────────────┘  │
+│        │          │          │          │                     │
+│        ▼          ▼          ▼          ▼                     │
+│  ┌──────────┐┌──────────┐┌──────────┐┌──────────┐           │
+│  │Replica A ││Replica B ││Replica C ││Replica D │           │
+│  │TP=2      ││TP=2      ││TP=2      ││TP=2      │           │
+│  │GPUs 0-1  ││GPUs 2-3  ││GPUs 4-5  ││GPUs 6-7  │           │
+│  │Llama 70B ││Llama 70B ││Llama 70B ││Llama 70B │           │
+│  │FP8       ││FP8       ││FP8       ││FP8       │           │
+│  └──────────┘└──────────┘└──────────┘└──────────┘           │
+│                                                              │
+│  Infrastructure: etcd, NATS, Prometheus, Grafana             │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 **NVIDIA stack:** Dynamo (inference platform with KV-aware routing), TensorRT-LLM (inference backend with speculative decoding), Grove (PodClique orchestration), KAI Scheduler (GPU-aware gang scheduling). Supporting infra: etcd, NATS.
 
-**Config:** 2 aggregated TP=4 replicas (all 8 GPUs). Each replica handles its own prefill and decode — no inter-pod KV transfers.
+**Config:** 4 aggregated TP=2 replicas (all 8 GPUs). Each replica handles its own prefill and decode — no inter-pod KV transfers.
 
 ## The Demo Experience
 
@@ -79,7 +81,7 @@ The demo has two displays running at the booth:
 
 ### Auto Mode
 
-For unattended periods, a scenario controller cycles load intensity through four phases: ramp up, steady state, high load, cooldown. No scaling events — replicas are fixed at 2.
+For unattended periods, a scenario controller cycles load intensity through four phases: ramp up, steady state, high load, cooldown. No scaling events — replicas are fixed at 4.
 
 ## Technical Stack & Conventions
 
@@ -92,7 +94,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 
 ### Critical Rules (Always Follow)
 
-**Phase 1 has fixed replicas.** No KEDA scaling. 2 worker replicas at TP=4 (all 8 GPUs used). Replica count is set in the DGD CR.
+**Phase 1 has fixed replicas.** No KEDA scaling. 4 worker replicas at TP=2 (all 8 GPUs used). Replica count is set in the DGD CR.
 
 **DOKS GPU prerequisites:** RuntimeClass `nvidia` must exist before GPU pods (KAI injects it). All GPU pods tolerate `nvidia.com/gpu:NoSchedule`. KAI queue label: `kai.scheduler/queue: default-queue`.
 
@@ -109,7 +111,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 | GPU | 1x `gpu-h100x8-640gb` | 1x `gpu-h200x8-1128gb-contracted` |
 | Region | `ams3` | `atl1` |
 | Model | Llama 3.1 70B Instruct FP8 | Llama 3.1 70B Instruct FP8 |
-| Replicas | 2x TP=4 (8 GPUs) | 2x TP=4 (8 GPUs) |
+| Replicas | 4x TP=2 (8 GPUs) | 4x TP=2 (8 GPUs) |
 | Hostname | `gtc-2026-dev.digitalocean.solutions` | `gtc-2026.digitalocean.solutions` |
 | Load Gen UI | `https://gtc-2026-dev.digitalocean.solutions` | `https://gtc-2026.digitalocean.solutions` |
 | Grafana | `https://gtc-2026-dev.digitalocean.solutions/grafana` | `https://gtc-2026.digitalocean.solutions/grafana` |
@@ -118,7 +120,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 
 | Phase | Focus | Risk |
 |-------|-------|------|
-| **1: KV-Aware Routing** | Aggregated TP=4 serving, KV-aware routing, multi-turn workload, baseline comparison | Low |
+| **1: KV-Aware Routing** | Aggregated TP=2 serving, KV-aware routing, multi-turn workload, baseline comparison | Low |
 | **2: Draft-Model Spec Decode** | Add Llama 8B as draft model for speculative decoding, show ITL improvement | Low-moderate |
 | **3: EAGLE3 Spec Decode** | Switch to Llama 3.3 70B + EAGLE3 heads, higher acceptance rates | Moderate-high (stretch) |
 
@@ -127,12 +129,14 @@ For unattended periods, a scenario controller cycles load intensity through four
 - `terraform/infra/` — Stack 1 (VPC, DOKS, NFS)
 - `terraform/cluster-config/` — Stack 2 (Helm releases, K8s baseline)
 - `terraform/environments/` — `dev.tfvars`, `prod.tfvars`
-- `k8s/dynamo/` — DGD CRs for aggregated TP=4 serving
+- `k8s/dynamo/` — DGD CRs for aggregated TP=2 serving
 - `apps/load-generator/` — Load gen UI + backend (Node.js/Express + React)
 - `apps/corpus-curator/` — Document corpus preparation
 - `k8s/gateway/` — Gateway API resources (Gateway, HTTPRoutes, ClusterIssuer)
 - `scripts/` — Helper scripts called by Make
-- `dev/MAKE-REFERENCE.md` — Make targets & scripts quick reference
+- `dev/MAKE-REFERENCE.md` — Refer to this when you need to understand what scripts and make targets exist and can be used as part of your plans.
+- `dev/DEPLOYMENT-GUIDE.md` — Refer to this when you need ot know how to Deploy, access, and tear down environments. 
+- `dev/NVIDIA-STACK-REFERENCE.md` — Refer to this when you need to know how to located the latest NVIDIA documentation for Dynamo, Grove, and KAI-Scheduler repos
 
 ## Local Environment
 
@@ -162,138 +166,3 @@ For unattended periods, a scenario controller cycles load intensity through four
 - **Image tagging:** `TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)` — date prefix + short git SHA (e.g., `20260210-a1b2c3d`).
 - **Public URLs:** After `deploy-gateway`, services are available at `https://<hostname>/` and `https://<hostname>/grafana`. DNS and TLS are fully automated via external-dns and cert-manager.
 
-## Deploying a New Environment
-
-Step-by-step guide for standing up a new environment (e.g., prod) or re-deploying from scratch.
-
-### Prerequisites
-
-- Environment file sourced: `source ~/env/gtc.env`
-- Docker registry auth: `doctl registry login --context solutions`
-- Environment tfvars file exists at `terraform/environments/<env>.tfvars` with: `name_prefix`, `region`, `vpc_cidr`, `doks_cluster_subnet`, `doks_service_subnet`, `gpu_droplet_size`, `gpu_node_count`, `hostname`
-- DNS domain (`digitalocean.solutions`) is managed in the DO account
-
-### Deployment Steps
-
-| Step | Command | What it does | Time |
-|------|---------|--------------|------|
-| 1 | `make infra-up ENV=<env>` | Creates VPC, DOKS cluster, NFS share. Saves kubeconfig. | ~10 min |
-| 2 | `scripts/wait-for-gpu.sh 1 900` | Waits for GPU node(s) to reach Ready state. | ~5-10 min |
-| 3 | `make cluster-config ENV=<env>` | Stack 2: namespaces, secrets, Helm releases (Dynamo platform, Prometheus, Grafana, KEDA, dcgm-exporter, cert-manager, external-dns). | ~5 min |
-| 4 | `make ensure-pvc` | Creates NFS PVC for model storage. | seconds |
-| 5 | `make setup-model` | Downloads model HF → Spaces → NFS (two K8s jobs). | ~30-45 min |
-| 6 | `make build-push-all` | Builds and pushes container images. | ~2 min |
-| 7 | `make deploy-apps ENV=<env>` | Deploys DGD, load generator, corpus, Gateway API resources. | ~5 min |
-| 8 | `make test-gateway ENV=<env>` | Validates Gateway, TLS cert, DNS, HTTPS routing. | seconds |
-| 9 | `make test-inference` | Sends test request through Dynamo frontend. | seconds |
-
-Or run the full chain: `make deploy ENV=<env>`
-
-### What `make deploy` does (full chain)
-
-`check-env` → `infra-up` → `cluster-config` → `ensure-pvc` → `setup-model` → `build-push-all` → `deploy-apps`
-
-Where `deploy-apps` = `deploy-dynamo` → `deploy-loadgen` → `deploy-corpus` → `deploy-gateway`
-
-### Gateway / DNS / TLS
-
-Handled automatically by `make cluster-config` + `make deploy-gateway` (part of `deploy-apps`):
-
-1. **cert-manager** (Helm, Stack 2) — watches Gateway resources, provisions Let's Encrypt TLS certs via DNS-01 challenge using DO DNS API
-2. **external-dns** (Helm, Stack 2) — watches HTTPRoutes, creates/syncs A records in DO DNS pointing hostname → LB IP
-3. **Gateway** (`k8s/gateway/`) — Cilium Gateway with HTTPS (443) + HTTP→HTTPS redirect (80), routes for `/` (load gen) and `/grafana` (Grafana)
-
-After `deploy-gateway`, allow ~2-3 min for LB provisioning, DNS propagation, and TLS cert issuance. Validate with `make test-gateway`.
-
-### Accessing the Demo
-
-| Method | Command / URL |
-|--------|---------------|
-| Public (after gateway) | `https://<hostname>/` (Load Gen), `https://<hostname>/grafana` (Grafana) |
-| Conversation viewer | `https://<hostname>/#/conversations` (list), `https://<hostname>/#/conversations/<id>` (detail) |
-| Port-forward (fallback) | `make demo-ui` (localhost:3000), `make demo-dashboard` (localhost:3001) |
-
-### Teardown
-
-`make teardown` — stops demo, destroys Stack 2, destroys Stack 1 (reverse order, errors suppressed).
-
-## NVIDIA Stack Documentation Reference
-
-When answering questions or making plans about the NVIDIA inference stack (Dynamo, Grove, KAI), search the documentation in these repos. Always prefer these docs over general knowledge — they reflect the latest APIs and behavior.
-
-### Dynamo — `/home/jjk3/PycharmProjects/work/ai-dynamo/dynamo`
-
-High-throughput disaggregated LLM inference framework. Core of the serving stack.
-
-**Docs** (under `docs/pages/`):
-
-| Doc Path | Topics |
-|------|--------|
-| `backends/trtllm/` | TRT-LLM backend setup, KV cache transfer, profiling, Prometheus metrics, model examples |
-| `components/frontend/` | Frontend (request routing, KV-aware dispatch) |
-| `components/router/` | Router configuration, routing strategies, examples |
-| `components/planner/` | Planner (scaling decisions), examples |
-| `components/kvbm/` | KV Buffer Manager (cache management) |
-| `features/disaggregated-serving/` | Disaggregated prefill/decode architecture and optimization |
-| `features/lora/`, `features/multimodal/`, `features/speculative-decoding/` | LoRA, multimodal, speculative decoding support |
-| `api/nixl-connect/` | NIXL API reference (device, connector, RDMA, descriptors) |
-| `kubernetes/` | Kubernetes deployment guides |
-| `observability/` | Metrics, monitoring, dashboards |
-| `fault-tolerance/` | Fault tolerance mechanisms |
-| `design-docs/` | Architecture and disaggregation design docs |
-| `benchmarks/` | Benchmarking guides, KV-router A/B testing |
-| `reference/` | Support matrix, feature matrix, release artifacts |
-| `agents/` | Tool calling for agentic inference |
-
-**Helm chart** — `deploy/helm/charts/platform/README.md`: Complete Helm values reference for the Dynamo platform chart (operator, NATS, etcd, Grove toggle, KAI toggle, webhooks, namespace scoping, checkpoint/restore). This is the definitive reference for all Helm configuration.
-
-**Examples** (under `examples/`):
-
-| Path | Topics |
-|------|--------|
-| `basics/quickstart/` | Simple aggregated serving with vLLM |
-| `basics/disaggregated_serving/` | Prefill/decode separation setup |
-| `basics/multinode/` | Distributed multi-node inference |
-| `basics/kubernetes/` | K8s distributed inference, shared frontend |
-| `backends/trtllm/` | TRT-LLM deployment configs, engine configs, performance sweeps |
-| `deployments/EKS/`, `deployments/AKS/`, `deployments/ECS/`, `deployments/GKE/` | Cloud provider deployment guides (AWS, Azure, GCP) |
-| `custom_backend/` | Custom backend hello world, cancellation patterns |
-| `hierarchical_planner/` | Hierarchical planner setup |
-
-### Grove — `/home/jjk3/PycharmProjects/work/ai-dynamo/grove`
-
-Kubernetes API for multi-pod inference orchestration. Manages PodCliques, gang scheduling, and scaling.
-
-| Doc Path (under `docs/`) | Topics |
-|------|--------|
-| `user-guide/01_core-concepts/` | PodClique (PCS), PodCliqueSet (PCSG), core abstractions |
-| `user-guide/02_pod-and-resource-naming-conventions/` | Pod naming conventions, examples |
-| `user-guide/03_environment-variables-for-pod-discovery/` | Pod discovery env vars, patterns |
-| `api-reference/` | Scheduler API, Operator API |
-| `quickstart.md`, `installation.md` | Getting started, Kind cluster setup |
-| `designs/` | Multi-node NVLink (MNNVL) design docs |
-| `proposals/` | Enhancement proposals (topology-aware scheduling, etc.) |
-
-### KAI-Scheduler — `/home/jjk3/PycharmProjects/work/NVIDIA/KAI-Scheduler`
-
-GPU-aware Kubernetes batch scheduler. Handles queues, fairness, GPU sharing, and topology placement.
-
-| Doc Path (under `docs/`) | Topics |
-|------|--------|
-| `quickstart/` | Getting started |
-| `queues/` | Hierarchical queue configuration |
-| `fairness/` | DRF and resource fairness |
-| `priority/` | Workload prioritization |
-| `batch/` | Batch and gang scheduling |
-| `elastic/` | Elastic workload scaling |
-| `gpu-sharing/` | GPU sharing (MPS, autoscaling) |
-| `topology/` | Topology-aware scheduling (multi-level) |
-| `dra/` | Dynamic Resource Allocation |
-| `operator/` | Operator deployment, scheduling shards |
-| `metrics/` | Metrics and monitoring |
-| `developer/` | Developer guides, plugin framework, action framework, design proposals |
-| `time-based-fairshare/` | Time-based fairness policies |
-
-### GTC 2026 Doks — `/home/jjk3/PycharmProjects/work/DO-Solutions/gtc-2026-doks`
-
-The demo project itself. Docs are in this CLAUDE.md (above) and component READMEs in `apps/`, `k8s/`, `terraform/`.
