@@ -66,6 +66,11 @@ def fmt_pct(v: float | None) -> str:
     return f"{v:.1f}%" if v is not None else "N/A"
 
 
+def fmt_ratio_pct(v: float | None) -> str:
+    """Format a 0-1 ratio as a percentage (e.g., 0.955 → '95.5%')."""
+    return f"{v * 100:.1f}%" if v is not None else "N/A"
+
+
 def main():
     args = parse_args()
     tsv_path = resolve_input(args.input)
@@ -105,11 +110,12 @@ def main():
         entry["round_robin"] = {
             "ttft_p50_ms": sec_to_ms(rr.get("ttft_p50_sec")),
             "ttft_p95_ms": sec_to_ms(rr.get("ttft_p95_sec")),
+            "kv_hit_rate_pct": round((rr.get("kv_hit_rate", 0) or 0) * 100, 1),
         }
         entry["kv_aware"] = {
             "ttft_p50_ms": sec_to_ms(kv.get("ttft_p50_sec")),
             "ttft_p95_ms": sec_to_ms(kv.get("ttft_p95_sec")),
-            "kv_hit_rate_pct": round(kv.get("kv_hit_rate", 0) or 0, 1),
+            "kv_hit_rate_pct": round((kv.get("kv_hit_rate", 0) or 0) * 100, 1),
         }
         json_levels.append(entry)
 
@@ -153,7 +159,7 @@ def main():
     md_lines.append(f"|:----------|:------|")
     md_lines.append(f"| Model | Llama 3.1 70B Instruct FP8 |")
     md_lines.append(f"| GPUs | 8x H100 (1 node) |")
-    md_lines.append(f"| Replicas | 2x TP=4 |")
+    md_lines.append(f"| Replicas | 4x TP=2 |")
     md_lines.append(f"| Backend | TensorRT-LLM via Dynamo |")
     md_lines.append(f"| Frontend | Dynamo Frontend (Rust) |")
     md_lines.append(f"| Max batch size | 64 |")
@@ -165,12 +171,13 @@ def main():
     # Results table
     md_lines.append(f"## Results")
     md_lines.append(f"")
-    md_lines.append(f"| Concurrency | RR TTFT p50 | KV TTFT p50 | p50 Improvement | RR TTFT p95 | KV TTFT p95 | p95 Improvement | KV Hit Rate |")
-    md_lines.append(f"|:-----------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|:---------------:|:-----------:|")
+    md_lines.append(f"| Concurrency | RR TTFT p50 | KV TTFT p50 | p50 Improvement | RR TTFT p95 | KV TTFT p95 | p95 Improvement | RR Hit Rate | KV Hit Rate |")
+    md_lines.append(f"|:-----------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|")
 
     improvements_p50 = []
     improvements_p95 = []
     kv_hit_rates = []
+    rr_hit_rates = []
 
     for conc in sorted_conc:
         rr = levels[conc].get("round_robin", {})
@@ -180,7 +187,8 @@ def main():
         kv_p50 = sec_to_ms(kv.get("ttft_p50_sec"))
         rr_p95 = sec_to_ms(rr.get("ttft_p95_sec"))
         kv_p95 = sec_to_ms(kv.get("ttft_p95_sec"))
-        hit_rate = kv.get("kv_hit_rate")
+        rr_hit = rr.get("kv_hit_rate")
+        kv_hit = kv.get("kv_hit_rate")
 
         imp_p50 = pct_improvement(rr_p50, kv_p50)
         imp_p95 = pct_improvement(rr_p95, kv_p95)
@@ -189,8 +197,10 @@ def main():
             improvements_p50.append((conc, imp_p50))
         if imp_p95 is not None:
             improvements_p95.append((conc, imp_p95))
-        if hit_rate is not None:
-            kv_hit_rates.append((conc, hit_rate))
+        if kv_hit is not None:
+            kv_hit_rates.append((conc, kv_hit))
+        if rr_hit is not None:
+            rr_hit_rates.append((conc, rr_hit))
 
         md_lines.append(
             f"| {conc} "
@@ -200,7 +210,8 @@ def main():
             f"| {fmt_ms(rr_p95)} "
             f"| {fmt_ms(kv_p95)} "
             f"| {fmt_pct(imp_p95)} "
-            f"| {fmt_pct(hit_rate)} |"
+            f"| {fmt_ratio_pct(rr_hit)} "
+            f"| {fmt_ratio_pct(kv_hit)} |"
         )
 
     md_lines.append(f"")
@@ -272,8 +283,17 @@ def main():
         min_hit = min(kv_hit_rates, key=lambda x: x[1])
         max_hit = max(kv_hit_rates, key=lambda x: x[1])
         md_lines.append(
-            f"- **KV cache hit rate:** {fmt_pct(min_hit[1])} (at {min_hit[0]}) to "
-            f"{fmt_pct(max_hit[1])} (at {max_hit[0]}), average {fmt_pct(avg_hit)}."
+            f"- **KV cache hit rate (KV mode):** {fmt_ratio_pct(min_hit[1])} (at {min_hit[0]}) to "
+            f"{fmt_ratio_pct(max_hit[1])} (at {max_hit[0]}), average {fmt_ratio_pct(avg_hit)}."
+        )
+
+    if rr_hit_rates:
+        avg_rr_hit = sum(h for _, h in rr_hit_rates) / len(rr_hit_rates)
+        min_rr_hit = min(rr_hit_rates, key=lambda x: x[1])
+        max_rr_hit = max(rr_hit_rates, key=lambda x: x[1])
+        md_lines.append(
+            f"- **KV cache hit rate (RR mode):** {fmt_ratio_pct(min_rr_hit[1])} (at {min_rr_hit[0]}) to "
+            f"{fmt_ratio_pct(max_rr_hit[1])} (at {max_rr_hit[0]}), average {fmt_ratio_pct(avg_rr_hit)}."
         )
 
     md_lines.append(f"")
