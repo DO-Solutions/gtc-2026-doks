@@ -71,6 +71,10 @@ def fmt_ratio_pct(v: float | None) -> str:
     return f"{v * 100:.1f}%" if v is not None else "N/A"
 
 
+def fmt_tops(v: float | None) -> str:
+    return f"{v:.1f}" if v is not None else "N/A"
+
+
 def main():
     args = parse_args()
     tsv_path = resolve_input(args.input)
@@ -94,6 +98,7 @@ def main():
             "kv_hit_rate": safe_float(row["kv_hit_rate"]),
             "error_pct": safe_float(row["error_pct"]),
             "actual_rps": safe_float(row["actual_rps"]),
+            "tops": safe_float(row.get("tops")),
             "rps": safe_float(row["rps"]),
         }
 
@@ -111,11 +116,13 @@ def main():
             "ttft_p50_ms": sec_to_ms(rr.get("ttft_p50_sec")),
             "ttft_p95_ms": sec_to_ms(rr.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((rr.get("kv_hit_rate", 0) or 0) * 100, 1),
+            "tops": rr.get("tops"),
         }
         entry["kv_aware"] = {
             "ttft_p50_ms": sec_to_ms(kv.get("ttft_p50_sec")),
             "ttft_p95_ms": sec_to_ms(kv.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((kv.get("kv_hit_rate", 0) or 0) * 100, 1),
+            "tops": kv.get("tops"),
         }
         json_levels.append(entry)
 
@@ -230,6 +237,27 @@ def main():
             f"| {fmt_pct(kv.get('error_pct'))} |"
         )
     md_lines.append(f"")
+
+    # Throughput table (only if tops data exists)
+    has_tops = any(
+        levels[c].get(m, {}).get("tops") is not None
+        for c in sorted_conc
+        for m in ("round_robin", "kv")
+    )
+    if has_tops:
+        md_lines.append(f"### Throughput (Output Tokens/s)")
+        md_lines.append(f"")
+        md_lines.append(f"| Concurrency | RR TOPS | KV TOPS |")
+        md_lines.append(f"|:-----------:|:-------:|:-------:|")
+        for conc in sorted_conc:
+            rr = levels[conc].get("round_robin", {})
+            kv = levels[conc].get("kv", {})
+            md_lines.append(
+                f"| {conc} "
+                f"| {fmt_tops(rr.get('tops'))} "
+                f"| {fmt_tops(kv.get('tops'))} |"
+            )
+        md_lines.append(f"")
 
     # JSON reference block
     md_lines.append(f"## Reference Data (JSON)")

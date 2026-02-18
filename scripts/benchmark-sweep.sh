@@ -157,9 +157,9 @@ except Exception:
 }
 
 # ── Collect metrics (pipe-delimited) ──────────────────────────────────────────
-# Output: ttft_p50|ttft_p95|kv_hit_rate|error_pct|actual_rps
+# Output: ttft_p50|ttft_p95|kv_hit_rate|error_pct|actual_rps|tops
 collect_metrics() {
-  local t50 t95 kh er ar
+  local t50 t95 kh er ar tops
 
   t50=$(prom_query 'loadgen_ttft_all_seconds{quantile="0.5"}')
   t95=$(prom_query 'loadgen_ttft_all_seconds{quantile="0.95"}')
@@ -167,6 +167,9 @@ collect_metrics() {
 
   # Actual RPS from Prometheus
   ar=$(prom_query "sum(rate(loadgen_requests_total[1m])) or vector(0)")
+
+  # Output tokens per second
+  tops=$(prom_query "sum(rate(dynamo_frontend_output_tokens_total{${COMPONENT_NS}}[1m])) or vector(0)")
 
   # Error rate from load generator /api/status
   local status_json
@@ -183,7 +186,7 @@ except Exception:
     print('NaN')
 " <<< "$status_json")
 
-  echo "${t50}|${t95}|${kh}|${er}|${ar}"
+  echo "${t50}|${t95}|${kh}|${er}|${ar}|${tops}"
 }
 
 # ── Average snapshot lines ────────────────────────────────────────────────────
@@ -192,7 +195,7 @@ average_snapshots() {
 import sys, math
 lines = [l.strip() for l in sys.stdin if l.strip()]
 if not lines:
-    print('|'.join(['NaN']*5)); sys.exit()
+    print('|'.join(['NaN']*6)); sys.exit()
 cols = [l.split('|') for l in lines]
 ncols = len(cols[0])
 avgs = []
@@ -404,7 +407,7 @@ if $DRY_RUN; then
   echo "Estimated duration: ~${local_total} min"
   echo ""
   echo "Output: ${OUTPUT_DIR}/benchmark-sweep-YYYYMMDD-HHMMSS.tsv"
-  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps  measure_start_utc  measure_end_utc"
+  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps  tops  measure_start_utc  measure_end_utc"
   exit 0
 fi
 
@@ -495,7 +498,7 @@ info "  Load generator ready"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TSV_FILE="${OUTPUT_DIR}/benchmark-sweep-${TIMESTAMP}.tsv"
 mkdir -p "$OUTPUT_DIR"
-printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\tmeasure_start_utc\tmeasure_end_utc\n" \
+printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\ttops\tmeasure_start_utc\tmeasure_end_utc\n" \
   > "$TSV_FILE"
 info "Results → ${TSV_FILE}"
 
@@ -538,12 +541,12 @@ run_phase() {
 
     # Average snapshots
     avg_line=$(echo "$SNAP_DATA" | average_snapshots)
-    IFS='|' read -r avg_t50 avg_t95 avg_kh avg_er avg_ar <<< "$avg_line"
+    IFS='|' read -r avg_t50 avg_t95 avg_kh avg_er avg_ar avg_tops <<< "$avg_line"
 
     # Write TSV row
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
       "$mode" "$conc" "$RPS" \
-      "$avg_t50" "$avg_t95" "$avg_kh" "$avg_er" "$avg_ar" \
+      "$avg_t50" "$avg_t95" "$avg_kh" "$avg_er" "$avg_ar" "$avg_tops" \
       "$measure_start" "$measure_end" >> "$TSV_FILE"
 
     # Display level summary
@@ -553,6 +556,7 @@ run_phase() {
     echo "│    KV hit $(fmt_pct "$avg_kh")"
     echo "│    Errors $(fmt_pct "$avg_er")"
     echo "│    RPS    ${avg_ar}  (target: ${RPS})"
+    echo "│    TOPS   ${avg_tops} tok/s"
     echo "│    Window ${measure_start} → ${measure_end}"
     echo "└──────────────────────────────────────────────────────"
   done

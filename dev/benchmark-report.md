@@ -71,10 +71,22 @@ At the SLA boundary (concurrency 50), KV-aware routing delivers p95 TTFT of 400m
 
 **Average**: KV-aware achieves **96.0% hit rate** vs round-robin's **83.8%** — a consistent **+12.2 percentage point** improvement across all concurrency levels.
 
-### Throughput
+### Throughput (Output Tokens/s)
 
-Both modes achieve similar actual RPS at each concurrency level, confirming that KV-aware routing does not introduce throughput overhead. The system saturates at approximately 5.2 RPS (limited by the 4 TP=2 replicas serving 70B parameters).
+| Concurrency | KV TOPS | RR TOPS | Difference |
+|:-----------:|:-------:|:-------:|:----------:|
+| 20 | 1318.9 | 1180.2 | +11.8% |
+| 30 | 1725.8 | 1673.2 | +3.1% |
+| 40 | 2234.3 | 2150.9 | +3.9% |
+| 50 | 2705.9 | 2593.6 | +4.3% |
+| 60 | 3158.4 | 2999.6 | +5.3% |
+| 70 | 3574.6 | 3391.1 | +5.4% |
+| 80 | 3975.6 | 3736.4 | +6.4% |
+| 100 | 4581.9 | 4384.0 | +4.5% |
+| 120 | 4149.7 | 3907.7 | +6.2% |
+
+Both modes scale similarly with concurrency, confirming that KV-aware routing does not reduce throughput. KV-aware routing shows a slight throughput advantage (3-6%) across most concurrency levels — likely because cache hits reduce redundant prefill work, freeing GPU cycles for decode. The system peaks at approximately 4,582 tok/s (concurrency 100).
 
 ## Key Takeaway
 
-KV-aware routing delivers measurably lower tail latency (TTFT p95) compared to round-robin by directing multi-turn conversations to the replica already holding their cached KV state. Across three independent benchmark runs at nine concurrency levels, KV routing maintained a 96% cache hit rate (vs 84% for round-robin) and was the only routing mode to meet a 400ms p95 TTFT SLA — sustaining it up to 50 concurrent conversations. This improvement requires zero application changes: the optimization is entirely at the infrastructure routing layer, transparent to the OpenAI-compatible API contract.
+KV-aware routing delivers measurably lower tail latency (TTFT p95) compared to round-robin by directing multi-turn conversations to the replica already holding their cached KV state. Across three independent benchmark runs at nine concurrency levels, KV routing maintained a 96% cache hit rate (vs 84% for round-robin) and was the only routing mode to meet a 400ms p95 TTFT SLA — sustaining it up to 50 concurrent conversations. Throughput (output tokens/s) is equivalent or slightly better under KV-aware routing, confirming zero overhead from the routing intelligence. This improvement requires zero application changes: the optimization is entirely at the infrastructure routing layer, transparent to the OpenAI-compatible API contract.
