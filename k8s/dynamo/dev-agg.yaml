@@ -86,11 +86,9 @@ spec:
             - "16384"
             - --max-batch-size
             - "64"
-            - --free-gpu-memory-fraction
-            - "0.85"
             - --publish-events-and-metrics
             - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"kv_cache_config":{"dtype":"fp8"}}'
+            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"kv_cache_config":{"dtype":"fp8","free_gpu_memory_fraction":0.85}}'
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real

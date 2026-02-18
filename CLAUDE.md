@@ -104,6 +104,8 @@ For unattended periods, a scenario controller cycles load intensity through four
 
 **Model changes require full redeploy:** When changing the `MODEL` variable (Makefile line 13), you must redeploy both the DGD workers (`make deploy-dynamo`) AND the load generator (`make deploy-loadgen`). The loadgen gets the model name via `MODEL_PLACEHOLDER` substitution at deploy time — it won't pick up Makefile changes until redeployed. Shortcut: `make deploy-apps` redeploys everything.
 
+**DYN_ROUTER_MODE changes**: When changing from round robin to KV Aware Routing we must restart all the worker pods as well otherwise the cache's get out of sync. 
+
 ### Environments
 
 | | Dev | Prod |

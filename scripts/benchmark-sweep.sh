@@ -404,7 +404,7 @@ if $DRY_RUN; then
   echo "Estimated duration: ~${local_total} min"
   echo ""
   echo "Output: ${OUTPUT_DIR}/benchmark-sweep-YYYYMMDD-HHMMSS.tsv"
-  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps"
+  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps  measure_start_utc  measure_end_utc"
   exit 0
 fi
 
@@ -495,7 +495,7 @@ info "  Load generator ready"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TSV_FILE="${OUTPUT_DIR}/benchmark-sweep-${TIMESTAMP}.tsv"
 mkdir -p "$OUTPUT_DIR"
-printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\n" \
+printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\tmeasure_start_utc\tmeasure_end_utc\n" \
   > "$TSV_FILE"
 info "Results → ${TSV_FILE}"
 
@@ -520,6 +520,8 @@ run_phase() {
     sleep "$WARMUP_SEC"
 
     # Measurement snapshots
+    local measure_start measure_end
+    measure_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     info "Measuring (${MEASURE_SEC}s, ${SNAPSHOT_COUNT} snapshots @ ${SNAPSHOT_INTERVAL}s)..."
     SNAP_DATA=""
     for ((s = 1; s <= SNAPSHOT_COUNT; s++)); do
@@ -532,15 +534,17 @@ run_phase() {
       IFS='|' read -r _t50 _t95 _kh _er _ar <<< "$line"
       info "    TTFT p50=$(fmt_sec "$_t50")  p95=$(fmt_sec "$_t95")  KV hit=$(fmt_pct "$_kh")  Err=$(fmt_pct "$_er")"
     done
+    measure_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # Average snapshots
     avg_line=$(echo "$SNAP_DATA" | average_snapshots)
     IFS='|' read -r avg_t50 avg_t95 avg_kh avg_er avg_ar <<< "$avg_line"
 
     # Write TSV row
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
       "$mode" "$conc" "$RPS" \
-      "$avg_t50" "$avg_t95" "$avg_kh" "$avg_er" "$avg_ar" >> "$TSV_FILE"
+      "$avg_t50" "$avg_t95" "$avg_kh" "$avg_er" "$avg_ar" \
+      "$measure_start" "$measure_end" >> "$TSV_FILE"
 
     # Display level summary
     echo "│"
@@ -549,6 +553,7 @@ run_phase() {
     echo "│    KV hit $(fmt_pct "$avg_kh")"
     echo "│    Errors $(fmt_pct "$avg_er")"
     echo "│    RPS    ${avg_ar}  (target: ${RPS})"
+    echo "│    Window ${measure_start} → ${measure_end}"
     echo "└──────────────────────────────────────────────────────"
   done
 }
