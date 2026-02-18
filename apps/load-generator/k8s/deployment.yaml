@@ -4,7 +4,28 @@ metadata:
   name: loadgen
   namespace: dynamo-workload
 ---
-# RBAC for Phase 2e scenario controller — pre-created now so the SA is ready
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: loadgen-node-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: loadgen-node-reader
+subjects:
+  - kind: ServiceAccount
+    name: loadgen
+    namespace: dynamo-workload
+roleRef:
+  kind: ClusterRole
+  name: loadgen-node-reader
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -13,6 +34,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: ["nvidia.com"]
+    resources: ["dynamographdeployments"]
     verbs: ["list", "get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

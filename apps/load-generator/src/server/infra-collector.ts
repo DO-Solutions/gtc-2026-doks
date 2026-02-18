@@ -5,6 +5,7 @@ import type { InfrastructureMetrics, PodInfraMetrics, GpuMetrics } from './types
 const SA_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';
 const POD_CACHE_TTL_MS = 30_000;
 const QUERY_TIMEOUT_MS = 5_000;
+const STATIC_CACHE_TTL_MS = 300_000;
 
 interface K8sPod {
   metadata: { name: string; namespace: string };
@@ -21,6 +22,9 @@ export class InfraCollector {
   private inCluster: boolean = false;
   private cachedPods: string[] = [];
   private podCacheExpiry = 0;
+  private cachedGpuType = 'Unknown';
+  private cachedModelName = 'Unknown';
+  private staticCacheExpiry = 0;
 
   constructor(config: AppConfig) {
     this.config = config;
@@ -35,12 +39,13 @@ export class InfraCollector {
   async collect(): Promise<InfrastructureMetrics> {
     const collectedAt = Date.now();
 
-    // Discover pods
+    // Discover pods and fetch static info
     let podNames: string[] = [];
     let podsDiscovered = false;
     if (this.inCluster) {
       podNames = await this.discoverPods();
       podsDiscovered = podNames.length > 0;
+      await this.fetchStaticInfo();
     }
 
     // Query Prometheus — all queries in parallel
@@ -121,7 +126,11 @@ export class InfraCollector {
       };
     });
 
-    return { collectedAt, pods, kvCacheHitRate, prometheusAvailable, podsDiscovered };
+    return {
+      collectedAt, pods, kvCacheHitRate, prometheusAvailable, podsDiscovered,
+      gpuType: this.cachedGpuType,
+      modelName: this.cachedModelName,
+    };
   }
 
   /** Map DCGM per-GPU results to pod → gpu index → value using exported_pod label. */
@@ -134,6 +143,72 @@ export class InfraCollector {
       if (!podMap) { podMap = new Map(); target.set(pod, podMap); }
       podMap.set(gpuIdx, parseFloat(r.value[1]));
     }
+  }
+
+  private async fetchStaticInfo(): Promise<void> {
+    if (Date.now() < this.staticCacheExpiry) return;
+
+    const [gpuType, modelName] = await Promise.all([
+      this.fetchGpuType().catch(() => this.cachedGpuType),
+      this.fetchModelName().catch(() => this.cachedModelName),
+    ]);
+
+    this.cachedGpuType = gpuType;
+    this.cachedModelName = modelName;
+    this.staticCacheExpiry = Date.now() + STATIC_CACHE_TTL_MS;
+    console.log(`[infra] Static info: gpuType=${gpuType}, modelName=${modelName}`);
+  }
+
+  private async fetchGpuType(): Promise<string> {
+    const url = 'https://kubernetes.default.svc/api/v1/nodes'
+      + '?labelSelector=doks.digitalocean.com/gpu-brand=nvidia';
+
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${this.saToken}` },
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
+    });
+
+    if (!resp.ok) {
+      console.log(`[infra] Node list returned ${resp.status}`);
+      return 'Unknown';
+    }
+
+    const body = (await resp.json()) as { items: Array<{ metadata: { labels?: Record<string, string> } }> };
+    if (body.items.length === 0) return 'Unknown';
+
+    const label = body.items[0].metadata.labels?.['doks.digitalocean.com/gpu-model'] ?? '';
+    return label ? label.toUpperCase() : 'Unknown';
+  }
+
+  private async fetchModelName(): Promise<string> {
+    const ns = this.config.k8sNamespace;
+    const url = `https://kubernetes.default.svc/apis/nvidia.com/v1alpha1/namespaces/${ns}/dynamographdeployments/gtc-demo`;
+
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${this.saToken}` },
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
+    });
+
+    if (!resp.ok) {
+      console.log(`[infra] DGD fetch returned ${resp.status}`);
+      return 'Unknown';
+    }
+
+    const body = (await resp.json()) as {
+      spec?: { services?: Record<string, { extraPodSpec?: { mainContainer?: { args?: string[] } } }> };
+    };
+
+    const args = body.spec?.services?.TrtllmWorker?.extraPodSpec?.mainContainer?.args;
+    if (!args) return 'Unknown';
+
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--model-path' && i + 1 < args.length) {
+        const segments = args[i + 1].split('/');
+        return segments[segments.length - 1] || 'Unknown';
+      }
+    }
+
+    return 'Unknown';
   }
 
   private async discoverPods(): Promise<string[]> {

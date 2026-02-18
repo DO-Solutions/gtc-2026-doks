@@ -469,6 +469,25 @@ input[type="range"]:disabled {
   letter-spacing: 0.05em;
 }
 
+.infra-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.infra-header h2 { margin-bottom: 0; }
+.infra-meta { display: flex; gap: 16px; }
+.infra-meta-item { display: flex; align-items: center; gap: 6px; }
+.infra-meta-label {
+  font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.infra-meta-value {
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--text-primary);
+}
+
 .infra-warning {
   background: rgba(255, 193, 7, 0.12);
   border: 1px solid rgba(255, 193, 7, 0.35);

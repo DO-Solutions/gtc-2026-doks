@@ -58,6 +58,8 @@ export interface InfrastructureMetrics {
   kvCacheHitRate: number | null;
   prometheusAvailable: boolean;
   podsDiscovered: boolean;
+  gpuType: string;
+  modelName: string;
 }
 
 export type WSMessage =

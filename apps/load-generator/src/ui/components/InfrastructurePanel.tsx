@@ -48,12 +48,32 @@ function PodCard({ pod }: { pod: PodInfraMetrics }) {
   );
 }
 
+function InfraHeader({ infra }: { infra: InfrastructureMetrics | null }) {
+  return (
+    <div className="infra-header">
+      <h2>Infrastructure</h2>
+      {infra && (
+        <div className="infra-meta">
+          <span className="infra-meta-item">
+            <span className="infra-meta-label">GPU</span>
+            <span className="infra-meta-value">{infra.gpuType}</span>
+          </span>
+          <span className="infra-meta-item">
+            <span className="infra-meta-label">Model</span>
+            <span className="infra-meta-value">{infra.modelName}</span>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InfrastructurePanel({ infra }: Props) {
   // Not yet connected
   if (!infra) {
     return (
       <div className="infra-section">
-        <h2>Infrastructure</h2>
+        <InfraHeader infra={null} />
         <div className="collecting-data">Connecting...</div>
       </div>
     );
@@ -68,7 +88,7 @@ export function InfrastructurePanel({ infra }: Props) {
   if (!infra.podsDiscovered) {
     return (
       <div className="infra-section">
-        <h2>Infrastructure</h2>
+        <InfraHeader infra={infra} />
         {promWarning}
         <div className="collecting-data">Waiting for worker pods...</div>
       </div>
@@ -77,7 +97,7 @@ export function InfrastructurePanel({ infra }: Props) {
 
   return (
     <div className="infra-section">
-      <h2>Infrastructure</h2>
+      <InfraHeader infra={infra} />
       {promWarning}
       <div className="infra-pods-row">
         {infra.pods.map((pod) => (
