@@ -171,7 +171,7 @@ export function App() {
               />
             </div>
 
-            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} />
+            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} concurrency={localConfig.maxConcurrency} />
           </div>
 
           <MetricsPanel metrics={ws.metrics} running={ws.running} />

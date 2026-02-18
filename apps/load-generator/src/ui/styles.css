@@ -331,6 +331,58 @@ input[type="range"]:disabled {
   margin-top: 6px;
 }
 
+/* Benchmark comparison (RR baseline) */
+.benchmark-comparison {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.benchmark-baseline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.benchmark-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.benchmark-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.improvement-badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.improvement-positive {
+  color: var(--accent-green);
+  background: rgba(76, 175, 80, 0.12);
+}
+
+.improvement-neutral {
+  color: var(--text-muted);
+  background: rgba(106, 106, 128, 0.12);
+}
+
+.improvement-detail {
+  font-size: 0.7rem;
+  font-weight: 400;
+}
 
 .collecting-data {
   color: var(--text-muted);
