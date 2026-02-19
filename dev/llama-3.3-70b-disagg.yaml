@@ -1,0 +1,216 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: llama-3-3-70b-1node
+  namespace: dynamo
+spec:
+  services:
+    Frontend:
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        initialDelaySeconds: 300
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      readinessProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -c
+            - 'curl -s http://localhost:8000/health | jq -e ".status == \"healthy\"" || sleep 2'
+        initialDelaySeconds: 300
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      dynamoNamespace: llama-3-3-70b-1node
+      componentType: main
+      replicas: 1
+      envs:
+        - name: DYN_LOG
+          value: "DEBUG"
+        - name: DYN_FRONTEND_LOG_REQUESTS
+          value: "true"
+      extraPodSpec:
+        nodeSelector:
+          kubernetes.io/arch: amd64
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.4.1
+          workingDir: /workspace/components/backends/vllm
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - "python3 -m dynamo.frontend --http-port 8000 --router-mode kv"
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "8Gi"
+              cpu: "4"
+
+    VllmDecodeWorker:
+      envFromSecret: hf-token-secret
+      livenessProbe:
+        httpGet:
+          path: /live
+          port: 9090
+        initialDelaySeconds: 600
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 9090
+        initialDelaySeconds: 600
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      dynamoNamespace: llama-3-3-70b-1node
+      componentType: worker
+      replicas: 4
+      resources:
+        limits:
+          gpu: "4"
+          memory: "400Gi"
+          cpu: "64"
+        requests:
+          gpu: "4"
+          memory: "200Gi"
+          cpu: "32"
+      envs:
+        - name: DYN_SYSTEM_ENABLED
+          value: "true"
+        - name: DYN_SYSTEM_USE_ENDPOINT_HEALTH_STATUS
+          value: "[\"generate\"]"
+        - name: DYN_SYSTEM_PORT
+          value: "9090"
+        - name: DYN_LOG
+          value: "DEBUG"
+        - name: VLLM_LOG_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENABLE_METRICS
+          value: "true"
+        - name: VLLM_ENABLE_LM_CACHE
+          value: "true"
+      extraPodSpec:
+        nodeSelector:
+          kubernetes.io/arch: amd64
+          gpu-type: h200
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+        mainContainer:
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 60
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.4.1
+          workingDir: /workspace/components/backends/vllm
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              python3 -m dynamo.vllm \
+              --model nvidia/Llama-3.3-70B-Instruct-FP8 \
+              --tensor-parallel-size 4 \
+              --enable-prefix-caching \
+              --enable-chunked-prefill \
+              --quantization fp8 \
+              --kv-cache-dtype fp8 \
+              --trust-remote-code \
+              --enable-log-requests \
+              2>&1 | tee /tmp/vllm.log
+    VllmPrefillWorker:
+      envFromSecret: hf-token-secret
+      livenessProbe:
+        httpGet:
+          path: /live
+          port: 9090
+        initialDelaySeconds: 600
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 9090
+        initialDelaySeconds: 600
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      dynamoNamespace: llama-3-3-70b-1node
+      componentType: worker
+      replicas: 4
+      resources:
+        limits:
+          gpu: "4"
+          memory: "400Gi"
+          cpu: "64"
+        requests:
+          gpu: "4"
+          memory: "200Gi"
+          cpu: "32"
+      envs:
+        - name: DYN_SYSTEM_ENABLED
+          value: "true"
+        - name: DYN_SYSTEM_USE_ENDPOINT_HEALTH_STATUS
+          value: "[\"generate\"]"
+        - name: DYN_SYSTEM_PORT
+          value: "9090"
+        - name: DYN_LOG
+          value: "DEBUG"
+        - name: VLLM_LOG_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENABLE_METRICS
+          value: "true"
+        - name: VLLM_ENABLE_LM_CACHE
+          value: "true"
+      extraPodSpec:
+        nodeSelector:
+          kubernetes.io/arch: amd64
+          gpu-type: h200
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+        mainContainer:
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9090
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 60
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.4.1
+          workingDir: /workspace/components/backends/vllm
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              python3 -m dynamo.vllm \
+              --model nvidia/Llama-3.3-70B-Instruct-FP8 \
+              --tensor-parallel-size 4 \
+              --enable-prefix-caching \
+              --enable-chunked-prefill \
+              --quantization fp8 \
+              --kv-cache-dtype fp8 \
+              --trust-remote-code \
+              --enable-log-requests \
+              --is-prefill-worker \
+              2>&1 | tee /tmp/vllm.log

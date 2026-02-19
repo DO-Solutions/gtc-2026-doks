@@ -1,0 +1,225 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: gtc-demo
+  namespace: dynamo-workload
+  annotations:
+    nvidia.com/enable-grove: "true"
+spec:
+  backendFramework: vllm
+  pvcs:
+    - name: model-nfs-pvc
+  envs:
+    - name: HF_HOME
+      value: "/models"
+  services:
+    Frontend:
+      componentType: frontend
+      replicas: 1
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      extraPodSpec:
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.9.0
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+      envs:
+        - name: DYN_ROUTER_MODE
+          value: kv
+
+    VllmDecodeWorker:
+      envFromSecret: hf-token
+      livenessProbe:
+        httpGet:
+          path: /live
+          port: 9092
+        initialDelaySeconds: 120
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 9092
+        initialDelaySeconds: 120
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      componentType: worker
+      subComponentType: decode
+      replicas: 1
+      resources:
+        limits:
+          gpu: "1"
+          memory: "100Gi"
+          cpu: "16"
+        requests:
+          gpu: "1"
+          memory: "50Gi"
+          cpu: "8"
+      envs:
+        - name: DYN_SYSTEM_ENABLED
+          value: "true"
+        - name: DYN_SYSTEM_USE_ENDPOINT_HEALTH_STATUS
+          value: '["generate"]'
+        - name: DYN_SYSTEM_PORT
+          value: "9092"
+        - name: DYN_LOG
+          value: "DEBUG"
+        - name: VLLM_LOG_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENABLE_METRICS
+          value: "true"
+      extraPodSpec:
+        hostNetwork: true
+        hostIPC: true
+        shareProcessNamespace: true
+        dnsPolicy: ClusterFirstWithHostNet
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+        mainContainer:
+          ports:
+            - containerPort: 9092
+              hostPort: 9092
+              name: system
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9092
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 30
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.9.0
+          workingDir: /workspace
+          env:
+            - name: NIXL_LOG_LEVEL
+              value: "INFO"
+            - name: UCX_LOG_LEVEL
+              value: "info"
+            - name: DYN_TCP_RPC_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - >-
+              python3 -m dynamo.vllm
+              --model /models/nvidia/Llama-3.1-8B-Instruct-FP8
+              --tensor-parallel-size 1
+              --enable-prefix-caching
+              --enable-chunked-prefill
+              --trust-remote-code
+              --enable-log-requests
+              2>&1 | tee /tmp/vllm.log
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+
+    VllmPrefillWorker:
+      envFromSecret: hf-token
+      livenessProbe:
+        httpGet:
+          path: /live
+          port: 9091
+        initialDelaySeconds: 120
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 9091
+        initialDelaySeconds: 120
+        periodSeconds: 60
+        timeoutSeconds: 30
+        failureThreshold: 10
+      componentType: worker
+      subComponentType: prefill
+      replicas: 1
+      resources:
+        limits:
+          gpu: "1"
+          memory: "100Gi"
+          cpu: "16"
+        requests:
+          gpu: "1"
+          memory: "50Gi"
+          cpu: "8"
+      envs:
+        - name: DYN_SYSTEM_ENABLED
+          value: "true"
+        - name: DYN_SYSTEM_USE_ENDPOINT_HEALTH_STATUS
+          value: '["generate"]'
+        - name: DYN_SYSTEM_PORT
+          value: "9091"
+        - name: DYN_LOG
+          value: "DEBUG"
+        - name: VLLM_LOG_LEVEL
+          value: "DEBUG"
+        - name: VLLM_ENABLE_METRICS
+          value: "true"
+        - name: DYN_VLLM_KV_EVENT_PORT
+          value: "20081"
+        - name: VLLM_NIXL_SIDE_CHANNEL_PORT
+          value: "5601"
+      extraPodSpec:
+        hostNetwork: true
+        hostIPC: true
+        shareProcessNamespace: true
+        dnsPolicy: ClusterFirstWithHostNet
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+        mainContainer:
+          ports:
+            - containerPort: 9091
+              hostPort: 9091
+              name: system
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 9091
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 30
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.9.0
+          workingDir: /workspace
+          env:
+            - name: NIXL_LOG_LEVEL
+              value: "INFO"
+            - name: UCX_LOG_LEVEL
+              value: "info"
+            - name: DYN_TCP_RPC_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - >-
+              python3 -m dynamo.vllm
+              --model /models/nvidia/Llama-3.1-8B-Instruct-FP8
+              --tensor-parallel-size 1
+              --enable-prefix-caching
+              --enable-chunked-prefill
+              --trust-remote-code
+              --enable-log-requests
+              --is-prefill-worker
+              2>&1 | tee /tmp/vllm.log
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
