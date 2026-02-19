@@ -352,6 +352,79 @@ TCP-emulated RMA (`rma_am(tcp/cilium_host)`) even for intra-node transfers.
 
 ---
 
+## Source Code Evidence
+
+The root cause analysis above is based on observed behavior (NVLink counters, UCX logs).
+This section cites specific source code locations in the NIXL and UCX repositories that
+prove the architectural incompatibility at the code level.
+
+### NIXL Uses RMA for KV Data Transfer
+
+NIXL's UCX plugin exclusively uses RMA (Remote Memory Access) operations for bulk KV
+cache data transfer. Active Messages are used only for lightweight notifications.
+
+| Evidence | Source |
+|----------|--------|
+| UCX context requests `UCP_FEATURE_RMA` as primary feature | [ucx_utils.cpp:433](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L433) |
+| KV data transfer calls `ucp_get_nbx()` (RMA GET) | [ucx_utils.cpp:304](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L304) |
+| KV data transfer calls `ucp_put_nbx()` (RMA PUT) | [ucx_utils.cpp:330](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L330) |
+| `RNDV_THRESH=inf` forces RMA for all payload sizes | [ucx_utils.cpp:461](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L461) |
+| GPU memory registered for RMA via `ucp_mem_map()` | [ucx_utils.cpp:578](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L578) |
+| Remote keys packed via `ucp_rkey_pack()` for RMA | [ucx_utils.cpp:608](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_utils.cpp#L608) |
+| `sendXferRangeBatch()` calls `ep.read()`/`ep.write()` (RMA) for actual KV transfer | [ucx_backend.cpp:1205-1206](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_backend.cpp#L1205-L1206) |
+| Active Messages used only for notifications, not data | [ucx_backend.cpp:1501](https://github.com/ai-dynamo/nixl/blob/b6909e19/src/plugins/ucx/ucx_backend.cpp#L1501) |
+
+### UCX cuda_ipc Cannot Serve RMA
+
+UCX's `cuda_ipc` transport only implements PUT/GET zcopy (which are `cuMemcpyDtoDAsync()`
+wrappers), not Active Message operations. It cannot participate in RMA lanes.
+
+| Evidence | Source |
+|----------|--------|
+| cuda_ipc capability flags: only `PUT_ZCOPY` + `GET_ZCOPY`, no AM flags | [cuda_ipc_iface.c:278-283](https://github.com/openucx/ucx/blob/a2687d50/src/uct/cuda/cuda_ipc/cuda_ipc_iface.c#L278-L283) |
+| cuda_ipc iface_ops: no `.ep_am_short`, `.ep_am_bcopy`, `.ep_am_zcopy` | [cuda_ipc_iface.c:334](https://github.com/openucx/ucx/blob/a2687d50/src/uct/cuda/cuda_ipc/cuda_ipc_iface.c#L334) |
+| put/get zcopy are `cuMemcpyDtoDAsync()` wrappers, not one-sided RMA | [cuda_ipc_ep.c:195-235](https://github.com/openucx/ucx/blob/a2687d50/src/uct/cuda/cuda_ipc/cuda_ipc_ep.c#L195-L235) |
+| TCP iface_ops includes all AM operations (contrast) | [tcp_iface.c:539](https://github.com/openucx/ucx/blob/a2687d50/src/uct/tcp/tcp_iface.c#L539) |
+
+### UCX Lane Selection Excludes cuda_ipc for RMA
+
+When NIXL calls `ucp_put_nbx()`/`ucp_get_nbx()`, UCX's wireup selects a lane for the
+RMA operation. cuda_ipc is excluded at every selection path.
+
+| Evidence | Source |
+|----------|--------|
+| RMA lanes require `PUT_SHORT`/`PUT_BCOPY`/`GET_BCOPY` (cuda_ipc only has zcopy) | [select.c:1173-1182](https://github.com/openucx/ucx/blob/a2687d50/src/ucp/wireup/select.c#L1173-L1182) |
+| AM-based RMA fallback (PUT) requires `AM_BCOPY` on `AM` lane type | [put_am.c:111-113](https://github.com/openucx/ucx/blob/a2687d50/src/ucp/rma/put_am.c#L111-L113) |
+| AM-based RMA fallback (GET) requires `AM_BCOPY` | [get_am.c:107](https://github.com/openucx/ucx/blob/a2687d50/src/ucp/rma/get_am.c#L107) |
+| Lane filtering rejects transports missing required capability flags | [proto_common.c:633](https://github.com/openucx/ucx/blob/a2687d50/src/ucp/proto/proto_common.c#L633) |
+
+### Complete Data Path
+
+```
+NIXL KV Transfer
+    │
+    ▼
+ucp_put_nbx() / ucp_get_nbx()     ← NIXL calls RMA API
+    │
+    ▼
+UCX Lane Selection for RMA
+    │
+    ├─ Native RMA lane?
+    │   Requires: PUT_SHORT or PUT_BCOPY or GET_BCOPY
+    │   cuda_ipc: only PUT_ZCOPY/GET_ZCOPY → ❌ REJECTED
+    │   tcp: no native RMA → ❌ REJECTED
+    │
+    └─ AM-based RMA fallback?
+        Requires: AM_BCOPY on AM lane
+        cuda_ipc: no AM ops → ❌ REJECTED
+        tcp: has AM_BCOPY → ✅ SELECTED
+            │
+            ▼
+        rma_am(tcp/...)     ← KV data goes over TCP, not NVLink
+```
+
+---
+
 ## Conclusion
 
 NVLink-based KV transfer between disaggregated vLLM workers is **not achievable** with
