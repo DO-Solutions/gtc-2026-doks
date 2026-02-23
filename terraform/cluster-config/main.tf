@@ -267,17 +267,20 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
           args = [
             <<-EOT
             set -e
-            # Skip if already installed
-            if [ -d /host/usr/local/cuda-13.1/compat ]; then
-              echo "CUDA 13.1 compat already installed, skipping"
+            COMPAT_DIR=/host/opt/cuda-compat-13.1
+            # Skip if our managed compat dir already has a working libcuda.so
+            if [ -f "$${COMPAT_DIR}/libcuda.so" ]; then
+              echo "CUDA 13.1 compat already installed at $${COMPAT_DIR}, skipping"
               exit 0
             fi
-            echo "Installing CUDA 13.1 forward compatibility package..."
+            echo "Installing CUDA 13.1 forward compatibility libs to $${COMPAT_DIR}..."
             chroot /host bash -c '
+              # Fix any interrupted dpkg state (DOKS images ship partial cuda-compat installs)
+              dpkg --configure -a 2>/dev/null || true
+
               . /etc/os-release
               UBUNTU_VER=$$(echo $$VERSION_ID | tr -d ".")
               REPO_URL="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$${UBUNTU_VER}/x86_64"
-              # Add NVIDIA CUDA repo if cuda-compat package is not available
               if ! apt-cache showpkg cuda-compat-13-1 2>/dev/null | grep -q "Versions:"; then
                 apt-get update -qq
                 apt-get install -y -qq wget
@@ -286,10 +289,22 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
                 rm -f /tmp/cuda-keyring.deb
                 apt-get update -qq
               fi
-              apt-get install -y -qq --no-install-recommends cuda-compat-13-1
+              apt-get install -y -qq --no-install-recommends --reinstall cuda-compat-13-1
               ldconfig
+
+              # Copy installed libs to our own managed path (avoids DOKS dpkg conflicts)
+              mkdir -p /opt/cuda-compat-13.1
+              cp -a /usr/local/cuda-13.1/compat/lib* /opt/cuda-compat-13.1/
             '
-            echo "CUDA 13.1 compat installed successfully"
+            # Verify
+            if [ -f "$${COMPAT_DIR}/libcuda.so" ]; then
+              echo "CUDA 13.1 compat installed and verified at $${COMPAT_DIR}"
+              ls -la "$${COMPAT_DIR}/"
+            else
+              echo "ERROR: libcuda.so not found after install" >&2
+              ls -la "$${COMPAT_DIR}/" 2>/dev/null || true
+              exit 1
+            fi
             EOT
           ]
 
@@ -305,11 +320,11 @@ resource "kubernetes_daemon_set_v1" "cuda_compat" {
           resources {
             requests = {
               cpu    = "100m"
-              memory = "128Mi"
+              memory = "256Mi"
             }
             limits = {
               cpu    = "1"
-              memory = "512Mi"
+              memory = "1Gi"
             }
           }
         }

@@ -12,7 +12,7 @@ TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
 MODEL     ?= nvidia/Llama-3.1-70B-Instruct-FP8
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
-CONTEXT   ?= do-ams3-gtc-demo
+CONTEXT   ?= do-nyc2-gtc-demo
 
 ifeq ($(ENV),prod)
   HOSTNAME := gtc-2026.digitalocean.solutions

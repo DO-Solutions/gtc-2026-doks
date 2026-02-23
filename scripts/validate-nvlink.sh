@@ -14,7 +14,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
+CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 NAMESPACE="dynamo-workload"
 DGD_LABEL="nvidia.com/dynamo-graph-deployment-name=gtc-demo"
 TIMEOUT=600

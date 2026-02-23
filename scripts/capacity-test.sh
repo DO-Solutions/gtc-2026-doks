@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # ── Defaults ────────────────────────────────────────────────────────────────
-CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
+CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 OUTPUT_DIR="dev"
 DRY_RUN=false
 
@@ -56,7 +56,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Staircase capacity test for Dynamo 4-replica TP=2 deployment.
+Staircase capacity test for Dynamo 3-replica TP=1 deployment.
 Steps through increasing load levels and finds max sustainable concurrency.
 
 Options:
@@ -387,8 +387,8 @@ info "  ${GPU_NODES} GPU node(s) ready"
 WORKER_PODS=$(kubectl --context "$CONTEXT" get pods -n "$LOADGEN_NS" \
   -l nvidia.com/dynamo-graph-deployment-name=gtc-demo \
   --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
-if [[ "$WORKER_PODS" -lt 5 ]]; then
-  warn "Expected >=5 DGD pods (frontend + 4 workers), found ${WORKER_PODS}"
+if [[ "$WORKER_PODS" -lt 4 ]]; then
+  warn "Expected >=4 DGD pods (frontend + 3 workers), found ${WORKER_PODS}"
   kubectl --context "$CONTEXT" get pods -n "$LOADGEN_NS" \
     -l nvidia.com/dynamo-graph-deployment-name=gtc-demo --no-headers
 fi

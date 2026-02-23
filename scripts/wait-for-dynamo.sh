@@ -3,10 +3,10 @@ set -euo pipefail
 
 TIMEOUT="${1:-600}"
 INTERVAL=15
-CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
+CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 NAMESPACE="dynamo-workload"
 LABEL="nvidia.com/dynamo-graph-deployment-name=gtc-demo"
-EXPECTED=5
+EXPECTED=4
 
 elapsed=0
 

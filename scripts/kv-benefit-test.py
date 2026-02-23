@@ -52,7 +52,7 @@ MEASURE_SEC = 120
 FRONTEND_NS = 'dynamo_namespace="dynamo-workload-gtc-demo"'
 COMPONENT_NS = 'dynamo_namespace="dynamo_workload_gtc_demo"'
 
-KUBE_CONTEXT = "do-ams3-gtc-demo"
+KUBE_CONTEXT = "do-nyc2-gtc-demo"
 LOADGEN_NS = "dynamo-workload"
 PROM_NS = "monitoring"
 PROM_SVC = "kube-prometheus-stack-prometheus"

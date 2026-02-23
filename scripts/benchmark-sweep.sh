@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # ── Defaults ────────────────────────────────────────────────────────────────
-CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
+CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 OUTPUT_DIR="dev"
 DRY_RUN=false
 MODE="both"   # both | kv | round_robin
@@ -324,7 +324,7 @@ restart_worker_pods() {
     -l "${DGD_LABEL},nvidia.com/dynamo-component-type=main" \
     --wait=false 2>/dev/null || true
   sleep 5
-  wait_for_dgd_pods 5 600
+  wait_for_dgd_pods 4 600
 }
 
 restart_all_dgd_pods() {
@@ -332,7 +332,7 @@ restart_all_dgd_pods() {
   kubectl --context "$CONTEXT" delete pods -n "$NAMESPACE" \
     -l "$DGD_LABEL" --wait=false 2>/dev/null || true
   sleep 5
-  wait_for_dgd_pods 5 600
+  wait_for_dgd_pods 4 600
 }
 
 # ── Format helpers ────────────────────────────────────────────────────────────
@@ -455,8 +455,8 @@ info "  ${GPU_NODES} GPU node(s) ready"
 DGD_PODS=$(kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" \
   -l "$DGD_LABEL" --field-selector=status.phase=Running \
   --no-headers 2>/dev/null | wc -l)
-if [[ "$DGD_PODS" -lt 5 ]]; then
-  warn "Expected >=5 DGD pods (frontend + 4 workers), found ${DGD_PODS}"
+if [[ "$DGD_PODS" -lt 4 ]]; then
+  warn "Expected >=4 DGD pods (frontend + 3 workers), found ${DGD_PODS}"
   kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" -l "$DGD_LABEL" --no-headers
 fi
 info "  ${DGD_PODS} DGD pod(s) running"
@@ -574,7 +574,7 @@ if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
   current_mode=$(get_routing_mode)
   if [[ "$current_mode" == "kv" ]]; then
     info "Already in kv mode — frontend has been tracking KV state since deploy"
-    wait_for_dgd_pods 5 300
+    wait_for_dgd_pods 4 300
   else
     # Not in KV mode — switch and restart workers so frontend tracks from start
     set_routing_mode "kv"
@@ -620,7 +620,7 @@ if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
   fi
 
   # Wait for workers to be stable after any frontend restart
-  wait_for_dgd_pods 5 300
+  wait_for_dgd_pods 4 300
   sleep 10
 
   run_phase "round_robin"

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # ── Defaults ────────────────────────────────────────────────────────────────
-CONTEXT="${KUBE_CONTEXT:-do-ams3-gtc-demo}"
+CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 NAMESPACE="dynamo-workload"
 DGD_NAME="gtc-demo"
 DGD_LABEL="nvidia.com/dynamo-graph-deployment-name=${DGD_NAME}"
