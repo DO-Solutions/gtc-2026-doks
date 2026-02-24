@@ -136,6 +136,8 @@ For unattended periods, a scenario controller cycles load intensity through four
 - `apps/corpus-curator/` — Document corpus preparation
 - `k8s/gateway/` — Gateway API resources (Gateway, HTTPRoutes, ClusterIssuer)
 - `scripts/` — Helper scripts called by Make
+- `k8s/benchmarks/` — vLLM benchmark Job manifests
+- `dev/vllm/benchmarks/` — Benchmark results by phase (JSON + logs + reports)
 - `dev/MAKE-REFERENCE.md` — Refer to this when you need to understand what scripts and make targets exist and can be used as part of your plans.
 - `dev/DEPLOYMENT-GUIDE.md` — Refer to this when you need ot know how to Deploy, access, and tear down environments. 
 - `dev/NVIDIA-STACK-REFERENCE.md` — Refer to this when you need to know how to located the latest NVIDIA documentation for Dynamo, Grove, and KAI-Scheduler repos
