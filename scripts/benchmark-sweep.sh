@@ -1,4 +1,4 @@
-Why#!/usr/bin/env bash
+#!/usr/bin/env bash
 # scripts/benchmark-sweep.sh — A/B benchmark of KV-aware vs round-robin routing.
 #
 # Runs 5 concurrency levels under both routing modes, collects Prometheus

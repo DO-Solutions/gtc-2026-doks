@@ -1,0 +1,100 @@
+{
+  "generated": "2026-02-24T16:19:01Z",
+  "model": "Llama-3.1-70B-Instruct-FP8",
+  "metric": "loadgen_ttft_all_seconds",
+  "target_rps": 10.0,
+  "levels": [
+    {
+      "concurrency": 90,
+      "round_robin": {
+        "ttft_p50_ms": 231.1,
+        "ttft_p95_ms": 5814.8,
+        "kv_hit_rate_pct": 0,
+        "tops": 0.0,
+        "tpot_p50_ms": 66.7,
+        "tpot_p95_ms": 83.0,
+        "latency_p50_ms": 59322.7,
+        "latency_p95_ms": 84091.7
+      },
+      "kv_aware": {
+        "ttft_p50_ms": null,
+        "ttft_p95_ms": null,
+        "kv_hit_rate_pct": 0,
+        "tops": null,
+        "tpot_p50_ms": null,
+        "tpot_p95_ms": null,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null
+      }
+    },
+    {
+      "concurrency": 100,
+      "round_robin": {
+        "ttft_p50_ms": 258.0,
+        "ttft_p95_ms": 3020.8,
+        "kv_hit_rate_pct": 0,
+        "tops": 0.0,
+        "tpot_p50_ms": 79.2,
+        "tpot_p95_ms": 86.3,
+        "latency_p50_ms": 72889.1,
+        "latency_p95_ms": 84524.1
+      },
+      "kv_aware": {
+        "ttft_p50_ms": null,
+        "ttft_p95_ms": null,
+        "kv_hit_rate_pct": 0,
+        "tops": null,
+        "tpot_p50_ms": null,
+        "tpot_p95_ms": null,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null
+      }
+    },
+    {
+      "concurrency": 110,
+      "round_robin": {
+        "ttft_p50_ms": 2213.5,
+        "ttft_p95_ms": 4967.2,
+        "kv_hit_rate_pct": 0,
+        "tops": 0.0,
+        "tpot_p50_ms": 82.7,
+        "tpot_p95_ms": 94.6,
+        "latency_p50_ms": 75743.5,
+        "latency_p95_ms": 92415.9
+      },
+      "kv_aware": {
+        "ttft_p50_ms": null,
+        "ttft_p95_ms": null,
+        "kv_hit_rate_pct": 0,
+        "tops": null,
+        "tpot_p50_ms": null,
+        "tpot_p95_ms": null,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null
+      }
+    },
+    {
+      "concurrency": 120,
+      "round_robin": {
+        "ttft_p50_ms": 297.0,
+        "ttft_p95_ms": 2226.6,
+        "kv_hit_rate_pct": 0,
+        "tops": 0.0,
+        "tpot_p50_ms": 84.3,
+        "tpot_p95_ms": 95.0,
+        "latency_p50_ms": 76664.8,
+        "latency_p95_ms": 93628.0
+      },
+      "kv_aware": {
+        "ttft_p50_ms": null,
+        "ttft_p95_ms": null,
+        "kv_hit_rate_pct": 0,
+        "tops": null,
+        "tpot_p50_ms": null,
+        "tpot_p95_ms": null,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null
+      }
+    }
+  ]
+}
