@@ -65,6 +65,18 @@ else
     exit 1
 fi
 
+# ── 3b. Patch vLLM dataset filter for long-context datasets ───────────────
+# vLLM's ShareGPT sampler has hardcoded max_prompt_len=1024, max_total_len=2048.
+# Custom datasets from collected conversations have 4K-10K token prompts.
+# Patch the defaults when using a non-default dataset.
+if [[ "${DATASET_PATH}" != "${DEFAULT_DATASET}" ]]; then
+    echo "==> Patching vLLM dataset filter for long-context dataset..."
+    DATASETS_PY=$(python3 -c "import vllm.benchmarks.datasets; print(vllm.benchmarks.datasets.__file__)")
+    sed -i 's/max_prompt_len: int = 1024/max_prompt_len: int = 16384/' "${DATASETS_PY}"
+    sed -i 's/max_total_len: int = 2048/max_total_len: int = 32768/' "${DATASETS_PY}"
+    echo "    Patched: max_prompt_len=16384, max_total_len=32768"
+fi
+
 # ── 4. Start vLLM server ───────────────────────────────────────────────────
 echo "==> Starting vLLM server..."
 echo "    Model: ${MODEL}"
