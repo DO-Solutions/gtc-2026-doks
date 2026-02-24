@@ -2,14 +2,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: dynamo-worker-main
-  namespace: dynamo-system
+  namespace: dynamo-workload
 spec:
   namespaceSelector:
     any: true
   podMetricsEndpoints:
   - interval: 5s
     path: /metrics
-    targetPort: 9090
+    port: system
     relabelings:
     - action: replace
       sourceLabels:

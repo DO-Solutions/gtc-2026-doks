@@ -33,7 +33,7 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy teardown clean \
 	model-to-spaces model-to-nfs setup-model \
 	build-loadgen build-all push-loadgen push-all build-push-all \
-	deploy-dynamo deploy-loadgen deploy-corpus deploy-apps \
+	deploy-dynamo deploy-dynamo-vllm deploy-loadgen deploy-corpus deploy-apps \
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-kv-cache validate-all \
@@ -123,11 +123,29 @@ build-push-all: build-all push-all ## Build and push all images
 deploy-dynamo: check-env ## Deploy Dynamo DGD workloads
 	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
 	kubectl --context $(CONTEXT) apply -f k8s/dynamo/rbac-k8s-discovery-fix.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/worker-podmonitor.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/frontend-podmonitor.yaml
 	$(eval WORKERS ?= $(shell kubectl --context $(CONTEXT) get nodes -l doks.digitalocean.com/gpu-brand=nvidia --no-headers 2>/dev/null | grep -c " Ready" || echo 0))
 	@if [ "$(WORKERS)" = "0" ]; then echo "ERROR: No Ready GPU nodes found"; exit 1; fi
 	@echo "Deploying DGD with $(WORKERS) worker replicas (from GPU node count)"
 	sed 's|REPLICAS_PLACEHOLDER|$(WORKERS)|g' \
 		k8s/dynamo/$(ENV)-agg.yaml | kubectl --context $(CONTEXT) apply -f -
+	KUBE_CONTEXT=$(CONTEXT) scripts/wait-for-dynamo.sh
+
+deploy-dynamo-vllm: check-env ## Deploy vLLM DGD workloads (replaces existing DGD)
+	kubectl --context $(CONTEXT) apply -f k8s/storage/model-nfs-pvc.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/rbac-k8s-discovery-fix.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/worker-podmonitor.yaml
+	kubectl --context $(CONTEXT) apply -f k8s/dynamo/frontend-podmonitor.yaml
+	@echo "Deleting existing DGD (switching backend requires replace)..."
+	-kubectl --context $(CONTEXT) delete dgd gtc-demo -n dynamo-workload --ignore-not-found=true
+	@echo "Waiting for old pods to terminate..."
+	-kubectl --context $(CONTEXT) wait --for=delete pods -l nvidia.com/dynamo-graph-deployment-name=gtc-demo -n dynamo-workload --timeout=120s 2>/dev/null || true
+	$(eval WORKERS ?= $(shell kubectl --context $(CONTEXT) get nodes -l doks.digitalocean.com/gpu-brand=nvidia --no-headers 2>/dev/null | grep -c " Ready" || echo 0))
+	@if [ "$(WORKERS)" = "0" ]; then echo "ERROR: No Ready GPU nodes found"; exit 1; fi
+	@echo "Deploying vLLM DGD with $(WORKERS) worker replicas (from GPU node count)"
+	sed 's|REPLICAS_PLACEHOLDER|$(WORKERS)|g' \
+		k8s/dynamo/$(ENV)-agg-vllm.yaml | kubectl --context $(CONTEXT) apply -f -
 	KUBE_CONTEXT=$(CONTEXT) scripts/wait-for-dynamo.sh
 
 deploy-loadgen: ## Deploy load generator

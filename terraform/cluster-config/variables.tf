@@ -44,3 +44,14 @@ variable "letsencrypt_email" {
   default     = "gtc-2026-demo@digitalocean.com"
   description = "Email for Let's Encrypt certificate notifications"
 }
+
+variable "backend_framework" {
+  description = "Inference backend framework (trtllm or vllm)"
+  type        = string
+  default     = "vllm"
+
+  validation {
+    condition     = contains(["trtllm", "vllm"], var.backend_framework)
+    error_message = "backend_framework must be 'trtllm' or 'vllm'."
+  }
+}

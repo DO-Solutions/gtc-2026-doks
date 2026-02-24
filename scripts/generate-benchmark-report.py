@@ -99,6 +99,10 @@ def main():
             "error_pct": safe_float(row["error_pct"]),
             "actual_rps": safe_float(row["actual_rps"]),
             "tops": safe_float(row.get("tops")),
+            "tpot_p50_sec": safe_float(row.get("tpot_p50_sec")),
+            "tpot_p95_sec": safe_float(row.get("tpot_p95_sec")),
+            "latency_p50_sec": safe_float(row.get("latency_p50_sec")),
+            "latency_p95_sec": safe_float(row.get("latency_p95_sec")),
             "rps": safe_float(row["rps"]),
         }
 
@@ -117,12 +121,20 @@ def main():
             "ttft_p95_ms": sec_to_ms(rr.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((rr.get("kv_hit_rate", 0) or 0) * 100, 1),
             "tops": rr.get("tops"),
+            "tpot_p50_ms": sec_to_ms(rr.get("tpot_p50_sec")),
+            "tpot_p95_ms": sec_to_ms(rr.get("tpot_p95_sec")),
+            "latency_p50_ms": sec_to_ms(rr.get("latency_p50_sec")),
+            "latency_p95_ms": sec_to_ms(rr.get("latency_p95_sec")),
         }
         entry["kv_aware"] = {
             "ttft_p50_ms": sec_to_ms(kv.get("ttft_p50_sec")),
             "ttft_p95_ms": sec_to_ms(kv.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((kv.get("kv_hit_rate", 0) or 0) * 100, 1),
             "tops": kv.get("tops"),
+            "tpot_p50_ms": sec_to_ms(kv.get("tpot_p50_sec")),
+            "tpot_p95_ms": sec_to_ms(kv.get("tpot_p95_sec")),
+            "latency_p50_ms": sec_to_ms(kv.get("latency_p50_sec")),
+            "latency_p95_ms": sec_to_ms(kv.get("latency_p95_sec")),
         }
         json_levels.append(entry)
 
@@ -256,6 +268,52 @@ def main():
                 f"| {conc} "
                 f"| {fmt_tops(rr.get('tops'))} "
                 f"| {fmt_tops(kv.get('tops'))} |"
+            )
+        md_lines.append(f"")
+
+    # TPOT table (only if tpot data exists)
+    has_tpot = any(
+        levels[c].get(m, {}).get("tpot_p50_sec") is not None
+        for c in sorted_conc
+        for m in ("round_robin", "kv")
+    )
+    if has_tpot:
+        md_lines.append(f"### TPOT — Time Per Output Token (ITL)")
+        md_lines.append(f"")
+        md_lines.append(f"| Concurrency | RR TPOT p50 | KV TPOT p50 | RR TPOT p95 | KV TPOT p95 |")
+        md_lines.append(f"|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|")
+        for conc in sorted_conc:
+            rr = levels[conc].get("round_robin", {})
+            kv = levels[conc].get("kv", {})
+            md_lines.append(
+                f"| {conc} "
+                f"| {fmt_ms(sec_to_ms(rr.get('tpot_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('tpot_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(rr.get('tpot_p95_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('tpot_p95_sec')))} |"
+            )
+        md_lines.append(f"")
+
+    # Latency table (only if latency data exists)
+    has_latency = any(
+        levels[c].get(m, {}).get("latency_p50_sec") is not None
+        for c in sorted_conc
+        for m in ("round_robin", "kv")
+    )
+    if has_latency:
+        md_lines.append(f"### End-to-End Latency")
+        md_lines.append(f"")
+        md_lines.append(f"| Concurrency | RR Latency p50 | KV Latency p50 | RR Latency p95 | KV Latency p95 |")
+        md_lines.append(f"|:-----------:|:--------------:|:--------------:|:--------------:|:--------------:|")
+        for conc in sorted_conc:
+            rr = levels[conc].get("round_robin", {})
+            kv = levels[conc].get("kv", {})
+            md_lines.append(
+                f"| {conc} "
+                f"| {fmt_ms(sec_to_ms(rr.get('latency_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('latency_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(rr.get('latency_p95_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('latency_p95_sec')))} |"
             )
         md_lines.append(f"")
 

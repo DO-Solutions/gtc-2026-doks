@@ -586,7 +586,26 @@ resource "helm_release" "external_dns" {
 
 # --- Grafana Dashboard ConfigMaps ---
 
+# Migrate existing (non-counted) resources to the vLLM variants.
+# These moved blocks allow Terraform to adopt the existing ConfigMaps
+# under the new resource addresses without destroy/recreate.
+moved {
+  from = kubernetes_config_map_v1.grafana_dynamo_dashboard
+  to   = kubernetes_config_map_v1.grafana_dynamo_dashboard_vllm[0]
+}
+moved {
+  from = kubernetes_config_map_v1.grafana_kvbm_dashboard
+  to   = kubernetes_config_map_v1.grafana_kvbm_dashboard_vllm[0]
+}
+moved {
+  from = kubernetes_config_map_v1.grafana_demo_dashboard
+  to   = kubernetes_config_map_v1.grafana_demo_dashboard_vllm[0]
+}
+
+# --- TRT-LLM dashboards (deployed when backend_framework = "trtllm") ---
+
 resource "kubernetes_config_map_v1" "grafana_dynamo_dashboard" {
+  count = var.backend_framework == "trtllm" ? 1 : 0
   metadata {
     name      = "grafana-dynamo-dashboard"
     namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
@@ -600,6 +619,7 @@ resource "kubernetes_config_map_v1" "grafana_dynamo_dashboard" {
 }
 
 resource "kubernetes_config_map_v1" "grafana_kvbm_dashboard" {
+  count = var.backend_framework == "trtllm" ? 1 : 0
   metadata {
     name      = "grafana-kvbm-dashboard"
     namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
@@ -613,6 +633,7 @@ resource "kubernetes_config_map_v1" "grafana_kvbm_dashboard" {
 }
 
 resource "kubernetes_config_map_v1" "grafana_demo_dashboard" {
+  count = var.backend_framework == "trtllm" ? 1 : 0
   metadata {
     name      = "grafana-demo-dashboard"
     namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
@@ -622,6 +643,50 @@ resource "kubernetes_config_map_v1" "grafana_demo_dashboard" {
   }
   data = {
     "demo-dashboard.json" = file("${path.module}/dashboards/demo.json")
+  }
+}
+
+# --- vLLM dashboards (deployed when backend_framework = "vllm") ---
+
+resource "kubernetes_config_map_v1" "grafana_dynamo_dashboard_vllm" {
+  count = var.backend_framework == "vllm" ? 1 : 0
+  metadata {
+    name      = "grafana-dynamo-dashboard"
+    namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
+    labels = {
+      grafana_dashboard = "1"
+    }
+  }
+  data = {
+    "dynamo-dashboard.json" = file("${path.module}/dashboards/dynamo-overview-vllm.json")
+  }
+}
+
+resource "kubernetes_config_map_v1" "grafana_kvbm_dashboard_vllm" {
+  count = var.backend_framework == "vllm" ? 1 : 0
+  metadata {
+    name      = "grafana-kvbm-dashboard"
+    namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
+    labels = {
+      grafana_dashboard = "1"
+    }
+  }
+  data = {
+    "kvbm-dashboard.json" = file("${path.module}/dashboards/kvbm-vllm.json")
+  }
+}
+
+resource "kubernetes_config_map_v1" "grafana_demo_dashboard_vllm" {
+  count = var.backend_framework == "vllm" ? 1 : 0
+  metadata {
+    name      = "grafana-demo-dashboard"
+    namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
+    labels = {
+      grafana_dashboard = "1"
+    }
+  }
+  data = {
+    "demo-dashboard.json" = file("${path.module}/dashboards/demo-vllm.json")
   }
 }
 

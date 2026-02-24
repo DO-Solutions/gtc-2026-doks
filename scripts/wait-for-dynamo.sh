@@ -7,12 +7,16 @@ CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 NAMESPACE="dynamo-workload"
 LABEL="nvidia.com/dynamo-graph-deployment-name=gtc-demo"
 
-# Auto-discover expected pod count from DGD CR
-FRONTEND=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
-  -o jsonpath='{.spec.services.Frontend.replicas}' 2>/dev/null || echo 0)
-WORKERS=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
-  -o jsonpath='{.spec.services.TrtllmWorker.replicas}' 2>/dev/null || echo 0)
-EXPECTED=$((FRONTEND + WORKERS))
+# Auto-discover expected pod count from DGD CR (backend-agnostic)
+EXPECTED=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" -o json 2>/dev/null \
+  | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(sum(s.get('replicas',0) for s in d['spec']['services'].values()))
+except Exception:
+    print(0)
+")
 if [ "$EXPECTED" -eq 0 ]; then
   echo "ERROR: Could not determine expected pod count from DGD CR 'gtc-demo'"
   exit 1

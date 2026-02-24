@@ -6,7 +6,7 @@ metadata:
   annotations:
     nvidia.com/enable-grove: "true"
 spec:
-  backendFramework: trtllm
+  backendFramework: vllm
   pvcs:
     - name: model-nfs-pvc
   envs:
@@ -30,11 +30,9 @@ spec:
                   fieldPath: metadata.uid
       envs:
         - name: DYN_ROUTER_MODE
-          value: kv
-        - name: DYN_KV_CACHE_BLOCK_SIZE
-          value: "32"
+          value: round_robin
 
-    TrtllmWorker:
+    VllmWorker:
       dynamoNamespace: gtc-demo
       componentType: main
       replicas: REPLICAS_PLACEHOLDER
@@ -56,7 +54,7 @@ spec:
               path: /opt/cuda-compat-13.1
               type: Directory
         mainContainer:
-          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:0.9.0
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.9.0
           ports:
             - name: system
               containerPort: 9090
@@ -71,20 +69,14 @@ spec:
           command:
             - bash
             - -c
-            - export LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH && exec python3 -m dynamo.trtllm "$@"
+            - export LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH && exec python3 -m dynamo.vllm "$@"
             - --
           args:
-            - --model-path
+            - --model
             - /models/nvidia/Llama-3.1-70B-Instruct-FP8
             - --tensor-parallel-size
             - "1"
-            - --max-num-tokens
-            - "16384"
-            - --max-batch-size
-            - "64"
-            - --publish-events-and-metrics
-            - --override-engine-args
-            - '{"enable_chunked_prefill":true,"disable_overlap_scheduler":false,"trust_remote_code":true,"kv_cache_config":{"dtype":"fp8","free_gpu_memory_fraction":0.85}}'
+            - --trust-remote-code
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real

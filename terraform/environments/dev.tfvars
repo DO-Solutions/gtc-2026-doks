@@ -7,3 +7,4 @@ gpu_droplet_size    = "gpu-h200x1-141gb"
 gpu_node_count      = 4
 hostname            = "gtc-2026-dev.digitalocean.solutions"
 nvlink_enabled      = false
+backend_framework   = "vllm"
