@@ -37,7 +37,7 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-kv-cache validate-all \
-	capacity-test benchmark-sweep
+	capacity-test benchmark-sweep collect-conversations
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -271,5 +271,18 @@ capacity-test: ## Run staircase capacity test (find max concurrency/RPS)
 benchmark-sweep: ## Run A/B benchmark: KV-aware vs round-robin routing (~65 min)
 	scripts/benchmark-sweep.sh --context $(CONTEXT) --output-dir dev
 	python3 scripts/generate-benchmark-report.py --input 'dev/benchmark-sweep-*.tsv' --output-dir dev
+
+collect-conversations: ## Collect conversations from load generator and create benchmark dataset
+	@echo "Port-forwarding to load generator..."
+	@kubectl --context $(CONTEXT) port-forward svc/loadgen 3000:3000 -n dynamo-workload &
+	@sleep 2
+	@echo "Collecting conversations..."
+	@python3 scripts/collect-conversations.py \
+		--url http://localhost:3000 \
+		--target 100 \
+		--output-dir dev/vllm/benchmarks/datasets || { kill %1 2>/dev/null; exit 1; }
+	@kill %1 2>/dev/null || true
+	@echo ""
+	@echo "Done. Upload the ShareGPT dataset to NFS and update DATASET_PATH in the benchmark Job YAML."
 
 validate-all: test-inference test-kv-cache ## Run all validation tests

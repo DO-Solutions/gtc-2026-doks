@@ -47,6 +47,8 @@ spec:
               value: "/models/nvidia/Llama-3.1-70B-Instruct-FP8"
             - name: TP_SIZE
               value: "1"
+            - name: DATASET_PATH
+              value: "/models/benchmarks/conversations-sharegpt-20260224-205203.json"
           volumeMounts:
             - name: nfs
               mountPath: /models

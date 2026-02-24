@@ -50,6 +50,7 @@
 | `test-gateway` | Check Gateway, TLS cert, DNS, HTTPS routing |
 | `test-inference` | Send test request to Dynamo frontend |
 | `capacity-test` | Staircase load test (calls `scripts/capacity-test.sh`) |
+| `collect-conversations` | Collect 100 conversations from loadgen API, create ShareGPT dataset (calls `scripts/collect-conversations.py`) |
 
 ## Scripts (`scripts/`)
 
@@ -61,7 +62,8 @@
 | `wait-for-dynamo.sh` | `[timeout=600]` | Polls until DGD pods are Running. Expected count auto-discovered from DGD CR. On timeout, prints logs from non-Running pods |
 | `capacity-test.sh` | `--context NAME --output-dir DIR [--dry-run]` | Staircase load test: L1-L7 increasing concurrency/RPS, measures TTFT/ITL/queue/KV/errors via Prometheus, outputs TSV. Stops on red thresholds (TTFT p95>3s, ITL p95>150ms, errors>5%) |
 | `validate-nvlink.sh` | `[--label TEXT]` | Post-deploy validation: pod readiness, co-location, inference test, NVLink counter check, UCX transport log extraction. Reports PASS/PARTIAL/FAIL |
-| `vllm-benchmark.sh` | env: `RESULT_LABEL`, `VLLM_EXTRA_ARGS`, `BENCHMARK_RATES`, `NUM_PROMPTS`, `MODEL`, `TP_SIZE` | Runs inside benchmark Job: starts vLLM server, sweeps request rates via `vllm bench serve` with ShareGPT, saves JSON results to NFS |
+| `collect-conversations.py` | `--url URL --target N --timeout S --poll-interval S --output-dir DIR` | Polls loadgen API for completed conversations, reconstructs accumulated message history, outputs raw JSON + ShareGPT format |
+| `vllm-benchmark.sh` | env: `RESULT_LABEL`, `VLLM_EXTRA_ARGS`, `BENCHMARK_RATES`, `NUM_PROMPTS`, `MODEL`, `TP_SIZE`, `DATASET_PATH` | Runs inside benchmark Job: starts vLLM server, sweeps request rates via `vllm bench serve`, saves JSON results to NFS. `DATASET_PATH` defaults to ShareGPT_V3 (auto-downloaded); set to custom path for collected conversations |
 
 ## Benchmarks
 
@@ -87,6 +89,7 @@ All configured in the Job YAML (`k8s/benchmarks/vllm-benchmark-job.yaml`):
 | `NUM_PROMPTS` | `300` | Number of prompts per rate point |
 | `MODEL` | `/models/nvidia/Llama-3.1-70B-Instruct-FP8` | Model path on NFS |
 | `TP_SIZE` | `1` | Tensor parallel size |
+| `DATASET_PATH` | (auto: ShareGPT_V3) | Path to ShareGPT JSON dataset on NFS. Custom datasets from `collect-conversations.py` can be uploaded and referenced here |
 
 ### Running a Benchmark
 

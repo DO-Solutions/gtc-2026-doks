@@ -8,6 +8,7 @@
 #   NUM_PROMPTS       — prompts per rate (default: 300)
 #   MODEL             — model path (default: /models/nvidia/Llama-3.1-70B-Instruct-FP8)
 #   TP_SIZE           — tensor parallel size (default: 1)
+#   DATASET_PATH      — path to ShareGPT JSON dataset (default: auto-downloads ShareGPT_V3)
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
@@ -18,7 +19,8 @@ NUM_PROMPTS="${NUM_PROMPTS:-300}"
 MODEL="${MODEL:-/models/nvidia/Llama-3.1-70B-Instruct-FP8}"
 TP_SIZE="${TP_SIZE:-1}"
 PORT=8000
-DATASET_PATH="/models/benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json"
+DEFAULT_DATASET="/models/benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json"
+DATASET_PATH="${DATASET_PATH:-${DEFAULT_DATASET}}"
 TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 RESULT_DIR="/models/benchmarks/${RESULT_LABEL}/${TIMESTAMP}"
 SERVER_LOG="/tmp/vllm-server.log"
@@ -46,17 +48,21 @@ else
     exit 1
 fi
 
-# ── 3. Download ShareGPT dataset ───────────────────────────────────────────
-echo "==> Checking for ShareGPT dataset..."
+# ── 3. Ensure dataset exists ──────────────────────────────────────────────
+echo "==> Checking for dataset at ${DATASET_PATH}..."
 if [[ -f "${DATASET_PATH}" ]]; then
     echo "    Dataset already exists at ${DATASET_PATH}"
-else
+elif [[ "${DATASET_PATH}" == "${DEFAULT_DATASET}" ]]; then
     echo "    Downloading ShareGPT dataset..."
     mkdir -p "$(dirname "${DATASET_PATH}")"
     curl -fsSL \
         "https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json" \
         -o "${DATASET_PATH}"
     echo "    Dataset downloaded ($(du -h "${DATASET_PATH}" | cut -f1))"
+else
+    echo "ERROR: Custom dataset not found at ${DATASET_PATH}"
+    echo "       Upload the dataset to NFS before running the benchmark."
+    exit 1
 fi
 
 # ── 4. Start vLLM server ───────────────────────────────────────────────────

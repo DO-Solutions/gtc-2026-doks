@@ -138,6 +138,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 - `scripts/` — Helper scripts called by Make
 - `k8s/benchmarks/` — vLLM benchmark Job manifests
 - `dev/vllm/benchmarks/` — Benchmark results by phase (JSON + logs + reports)
+- `dev/vllm/benchmarks/datasets/` — Custom benchmark datasets (collected from loadgen conversations)
 - `dev/MAKE-REFERENCE.md` — Refer to this when you need to understand what scripts and make targets exist and can be used as part of your plans.
 - `dev/DEPLOYMENT-GUIDE.md` — Refer to this when you need ot know how to Deploy, access, and tear down environments. 
 - `dev/NVIDIA-STACK-REFERENCE.md` — Refer to this when you need to know how to located the latest NVIDIA documentation for Dynamo, Grove, and KAI-Scheduler repos
@@ -169,4 +170,5 @@ For unattended periods, a scenario controller cycles load intensity through four
 - **GPU node readiness:** After `make infra-up`, GPU nodes take time to become Ready. Run `scripts/wait-for-gpu.sh [count] [timeout]` to poll (defaults: 4 nodes, 900s).
 - **Image tagging:** `TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)` — date prefix + short git SHA (e.g., `20260210-a1b2c3d`).
 - **Public URLs:** After `deploy-gateway`, services are available at `https://<hostname>/` and `https://<hostname>/grafana`. DNS and TLS are fully automated via external-dns and cert-manager.
+- **Benchmark datasets:** The default benchmark uses ShareGPT (avg ~207 input tokens), which doesn't represent the demo workload. Use `make collect-conversations` to collect real multi-turn conversations from the loadgen (avg 3,500–7,000 input tokens) and create a custom ShareGPT dataset. Workflow: (1) deploy DGD + start workload, (2) `make collect-conversations ENV=dev`, (3) stop workload, (4) upload dataset to NFS via `kubectl cp` with a helper pod (must run as UID 1000 for NFS write access), (5) update `DATASET_PATH` in `k8s/benchmarks/vllm-benchmark-job.yaml`, (6) update the benchmark ConfigMap. The `DATASET_PATH` env var in both the Job YAML and `scripts/vllm-benchmark.sh` controls which dataset is used; it defaults to the generic ShareGPT file.
 
