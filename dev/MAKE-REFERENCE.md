@@ -30,7 +30,7 @@
 | `build-loadgen` | Build load generator Docker image |
 | `build-push-all` | Build + push all images (tagged `YYYYMMDD-<sha>`) |
 | **Application Deployment** | |
-| `deploy-dynamo` | Apply DGD CR (`k8s/dynamo/<env>-agg.yaml`), RBAC, wait for pods |
+| `deploy-dynamo` | Apply DGD CR (`k8s/dynamo/<env>-agg.yaml`) with worker replicas auto-discovered from GPU node count (override: `WORKERS=N`), RBAC, wait for pods |
 | `deploy-loadgen` | Deploy loadgen (substitutes TAG + MODEL placeholders) |
 | `deploy-corpus` | Curate + upload corpus to Spaces |
 | `deploy-gateway` | Apply Gateway, HTTPRoutes, ClusterIssuer (substitutes HOSTNAME) |
@@ -56,8 +56,8 @@
 | Script | Args | What it does |
 |--------|------|-------------|
 | `check-env.sh` | — | Validates required env vars, exits 1 if missing |
-| `wait-for-gpu.sh` | `[count=3] [timeout=900]` | Polls until GPU nodes are Ready (15s interval) |
+| `wait-for-gpu.sh` | `[count=4] [timeout=900]` | Polls until GPU nodes are Ready (15s interval) |
 | `setup-model.sh` | env: `MODEL`, `KUBE_CONTEXT` | Two-stage model pipeline: HF → Spaces → NFS via K8s jobs |
-| `wait-for-dynamo.sh` | `[timeout=600]` | Polls until 4 DGD pods (1 frontend + 3 workers) are Running. On timeout, prints logs from non-Running pods |
+| `wait-for-dynamo.sh` | `[timeout=600]` | Polls until DGD pods are Running. Expected count auto-discovered from DGD CR. On timeout, prints logs from non-Running pods |
 | `capacity-test.sh` | `--context NAME --output-dir DIR [--dry-run]` | Staircase load test: L1-L7 increasing concurrency/RPS, measures TTFT/ITL/queue/KV/errors via Prometheus, outputs TSV. Stops on red thresholds (TTFT p95>3s, ITL p95>150ms, errors>5%) |
 | `validate-nvlink.sh` | `[--label TEXT]` | Post-deploy validation: pod readiness, co-location, inference test, NVLink counter check, UCX transport log extraction. Reports PASS/PARTIAL/FAIL |

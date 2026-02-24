@@ -37,7 +37,7 @@ spec:
     TrtllmWorker:
       dynamoNamespace: gtc-demo
       componentType: main
-      replicas: 3
+      replicas: REPLICAS_PLACEHOLDER
       envFromSecret: hf-token
       volumeMounts:
         - name: model-nfs-pvc

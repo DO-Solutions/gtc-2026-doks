@@ -6,7 +6,17 @@ INTERVAL=15
 CONTEXT="${KUBE_CONTEXT:-do-nyc2-gtc-demo}"
 NAMESPACE="dynamo-workload"
 LABEL="nvidia.com/dynamo-graph-deployment-name=gtc-demo"
-EXPECTED=4
+
+# Auto-discover expected pod count from DGD CR
+FRONTEND=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
+  -o jsonpath='{.spec.services.Frontend.replicas}' 2>/dev/null || echo 0)
+WORKERS=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
+  -o jsonpath='{.spec.services.TrtllmWorker.replicas}' 2>/dev/null || echo 0)
+EXPECTED=$((FRONTEND + WORKERS))
+if [ "$EXPECTED" -eq 0 ]; then
+  echo "ERROR: Could not determine expected pod count from DGD CR 'gtc-demo'"
+  exit 1
+fi
 
 elapsed=0
 

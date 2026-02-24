@@ -110,10 +110,10 @@ For unattended periods, a scenario controller cycles load intensity through four
 
 | | Dev | Prod |
 |--|-----|------|
-| GPU | 3x `gpu-h200x1-141gb` | 1x `gpu-h200x8-1128gb-contracted` |
+| GPU | 4x `gpu-h200x1-141gb` | 1x `gpu-h200x8-1128gb-contracted` |
 | Region | `nyc2` | `atl1` |
 | Model | Llama 3.1 70B Instruct FP8 | Llama 3.1 70B Instruct FP8 |
-| Replicas | 3x TP=1 (3 GPUs) | 4x TP=2 (8 GPUs) |
+| Replicas | 4x TP=1 (4 GPUs) | 4x TP=2 (8 GPUs) |
 | Hostname | `gtc-2026-dev.digitalocean.solutions` | `gtc-2026.digitalocean.solutions` |
 | Load Gen UI | `https://gtc-2026-dev.digitalocean.solutions` | `https://gtc-2026.digitalocean.solutions` |
 | Grafana | `https://gtc-2026-dev.digitalocean.solutions/grafana` | `https://gtc-2026.digitalocean.solutions/grafana` |
@@ -164,7 +164,7 @@ For unattended periods, a scenario controller cycles load intensity through four
 - **Terraform state:** Local (terraform.tfstate in each stack directory).
 - **Env sourcing:** Manual — run `source /home/jjk3/env/gtc.env` before make/terraform. Makefile's `check-env` target validates required vars are set.
 - **Kubeconfig:** After cluster creation, save via `doctl kubernetes cluster kubeconfig save gtc-demo --context solutions`. kubectl context: `do-nyc2-gtc-demo`.
-- **GPU node readiness:** After `make infra-up`, GPU nodes take time to become Ready. Run `scripts/wait-for-gpu.sh [count] [timeout]` to poll (defaults: 3 nodes, 900s).
+- **GPU node readiness:** After `make infra-up`, GPU nodes take time to become Ready. Run `scripts/wait-for-gpu.sh [count] [timeout]` to poll (defaults: 4 nodes, 900s).
 - **Image tagging:** `TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)` — date prefix + short git SHA (e.g., `20260210-a1b2c3d`).
 - **Public URLs:** After `deploy-gateway`, services are available at `https://<hostname>/` and `https://<hostname>/grafana`. DNS and TLS are fully automated via external-dns and cert-manager.
 

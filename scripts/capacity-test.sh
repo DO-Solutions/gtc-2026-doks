@@ -56,7 +56,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Staircase capacity test for Dynamo 3-replica TP=1 deployment.
+Staircase capacity test for Dynamo TP=1 deployment.
 Steps through increasing load levels and finds max sustainable concurrency.
 
 Options:
@@ -383,12 +383,21 @@ if [[ "$GPU_NODES" -eq 0 ]]; then
 fi
 info "  ${GPU_NODES} GPU node(s) ready"
 
+# Auto-discover expected pod count from DGD CR
+DGD_EXPECTED_PODS=0
+_frontend=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$LOADGEN_NS" \
+  -o jsonpath='{.spec.services.Frontend.replicas}' 2>/dev/null || echo 0)
+_workers=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$LOADGEN_NS" \
+  -o jsonpath='{.spec.services.TrtllmWorker.replicas}' 2>/dev/null || echo 0)
+DGD_EXPECTED_PODS=$((_frontend + _workers))
+DGD_WORKERS=$((_workers))
+
 # DGD pods
 WORKER_PODS=$(kubectl --context "$CONTEXT" get pods -n "$LOADGEN_NS" \
   -l nvidia.com/dynamo-graph-deployment-name=gtc-demo \
   --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
-if [[ "$WORKER_PODS" -lt 4 ]]; then
-  warn "Expected >=4 DGD pods (frontend + 3 workers), found ${WORKER_PODS}"
+if [[ "$WORKER_PODS" -lt "$DGD_EXPECTED_PODS" ]]; then
+  warn "Expected >=${DGD_EXPECTED_PODS} DGD pods (frontend + ${DGD_WORKERS} workers), found ${WORKER_PODS}"
   kubectl --context "$CONTEXT" get pods -n "$LOADGEN_NS" \
     -l nvidia.com/dynamo-graph-deployment-name=gtc-demo --no-headers
 fi

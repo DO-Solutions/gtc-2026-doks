@@ -293,6 +293,15 @@ verify_frontend_mode() {
   return 1
 }
 
+get_expected_dgd_pods() {
+  local frontend workers
+  frontend=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
+    -o jsonpath='{.spec.services.Frontend.replicas}' 2>/dev/null || echo 0)
+  workers=$(kubectl --context "$CONTEXT" get dgd gtc-demo -n "$NAMESPACE" \
+    -o jsonpath='{.spec.services.TrtllmWorker.replicas}' 2>/dev/null || echo 0)
+  echo $((frontend + workers))
+}
+
 wait_for_dgd_pods() {
   local expected_count="$1" timeout="${2:-600}" interval=15 elapsed=0
   info "Waiting for ${expected_count} DGD pods (frontend + workers) to be Running..."
@@ -324,7 +333,7 @@ restart_worker_pods() {
     -l "${DGD_LABEL},nvidia.com/dynamo-component-type=main" \
     --wait=false 2>/dev/null || true
   sleep 5
-  wait_for_dgd_pods 4 600
+  wait_for_dgd_pods "$DGD_EXPECTED_PODS" 600
 }
 
 restart_all_dgd_pods() {
@@ -332,7 +341,7 @@ restart_all_dgd_pods() {
   kubectl --context "$CONTEXT" delete pods -n "$NAMESPACE" \
     -l "$DGD_LABEL" --wait=false 2>/dev/null || true
   sleep 5
-  wait_for_dgd_pods 4 600
+  wait_for_dgd_pods "$DGD_EXPECTED_PODS" 600
 }
 
 # ── Format helpers ────────────────────────────────────────────────────────────
@@ -451,12 +460,20 @@ if [[ "$GPU_NODES" -eq 0 ]]; then
 fi
 info "  ${GPU_NODES} GPU node(s) ready"
 
-# DGD pods (frontend + 4 workers = 5)
+# Auto-discover expected pod count from DGD CR
+DGD_EXPECTED_PODS=$(get_expected_dgd_pods)
+DGD_WORKERS=$((DGD_EXPECTED_PODS - 1))
+if [[ "$DGD_EXPECTED_PODS" -eq 0 ]]; then
+  err "Could not determine expected DGD pod count from DGD CR"
+  exit 1
+fi
+
+# DGD pods (frontend + workers)
 DGD_PODS=$(kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" \
   -l "$DGD_LABEL" --field-selector=status.phase=Running \
   --no-headers 2>/dev/null | wc -l)
-if [[ "$DGD_PODS" -lt 4 ]]; then
-  warn "Expected >=4 DGD pods (frontend + 3 workers), found ${DGD_PODS}"
+if [[ "$DGD_PODS" -lt "$DGD_EXPECTED_PODS" ]]; then
+  warn "Expected >=${DGD_EXPECTED_PODS} DGD pods (frontend + ${DGD_WORKERS} workers), found ${DGD_PODS}"
   kubectl --context "$CONTEXT" get pods -n "$NAMESPACE" -l "$DGD_LABEL" --no-headers
 fi
 info "  ${DGD_PODS} DGD pod(s) running"
@@ -574,7 +591,7 @@ if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
   current_mode=$(get_routing_mode)
   if [[ "$current_mode" == "kv" ]]; then
     info "Already in kv mode — frontend has been tracking KV state since deploy"
-    wait_for_dgd_pods 4 300
+    wait_for_dgd_pods "$DGD_EXPECTED_PODS" 300
   else
     # Not in KV mode — switch and restart workers so frontend tracks from start
     set_routing_mode "kv"
@@ -620,7 +637,7 @@ if [[ "$MODE" == "both" || "$MODE" == "round_robin" ]]; then
   fi
 
   # Wait for workers to be stable after any frontend restart
-  wait_for_dgd_pods 4 300
+  wait_for_dgd_pods "$DGD_EXPECTED_PODS" 300
   sleep 10
 
   run_phase "round_robin"

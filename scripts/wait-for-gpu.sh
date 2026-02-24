@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-EXPECTED_COUNT="${1:-3}"
+EXPECTED_COUNT="${1:-4}"
 TIMEOUT="${2:-900}"
 INTERVAL=15
 LABEL="doks.digitalocean.com/gpu-brand=nvidia"
