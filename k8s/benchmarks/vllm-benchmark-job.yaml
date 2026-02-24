@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vllm-benchmark
+  namespace: dynamo-workload
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      volumes:
+        - name: nfs
+          persistentVolumeClaim:
+            claimName: model-nfs-pvc
+        - name: cuda-compat
+          hostPath:
+            path: /opt/cuda-compat-13.1
+            type: Directory
+        - name: benchmark-script
+          configMap:
+            name: vllm-benchmark-script
+            defaultMode: 0755
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+      containers:
+        - name: benchmark
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.9.0
+          command:
+            - /scripts/vllm-benchmark.sh
+          env:
+            - name: RESULT_LABEL
+              value: "phase0"
+            - name: VLLM_EXTRA_ARGS
+              value: ""
+            - name: BENCHMARK_RATES
+              value: "0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0"
+            - name: NUM_PROMPTS
+              value: "300"
+            - name: MODEL
+              value: "/models/nvidia/Llama-3.1-70B-Instruct-FP8"
+            - name: TP_SIZE
+              value: "1"
+          volumeMounts:
+            - name: nfs
+              mountPath: /models
+            - name: cuda-compat
+              mountPath: /usr/local/cuda/compat/lib.real
+              readOnly: true
+            - name: benchmark-script
+              mountPath: /scripts
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+            limits:
+              nvidia.com/gpu: "1"
