@@ -1,0 +1,91 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: gtc-demo
+  namespace: dynamo-workload
+  annotations:
+    nvidia.com/enable-grove: "true"
+spec:
+  backendFramework: vllm
+  pvcs:
+    - name: model-nfs-pvc
+  envs:
+    - name: HF_HOME
+      value: "/models"
+  services:
+    Frontend:
+      dynamoNamespace: gtc-demo
+      componentType: frontend
+      replicas: 1
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      extraPodSpec:
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.9.0
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+      envs:
+        - name: DYN_ROUTER_MODE
+          value: round_robin
+
+    VllmWorker:
+      dynamoNamespace: gtc-demo
+      componentType: main
+      replicas: REPLICAS_PLACEHOLDER
+      envFromSecret: hf-token
+      volumeMounts:
+        - name: model-nfs-pvc
+          mountPoint: /models
+      resources:
+        limits:
+          gpu: "1"
+      extraPodSpec:
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        volumes:
+          - name: cuda-compat
+            hostPath:
+              path: /opt/cuda-compat-13.1
+              type: Directory
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:0.9.0
+          ports:
+            - name: system
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: DYN_SYSTEM_PORT
+              value: "9090"
+          command:
+            - bash
+            - -c
+            - export LD_LIBRARY_PATH=/usr/local/cuda/compat/lib.real:$LD_LIBRARY_PATH && exec python3 -m dynamo.vllm "$@"
+            - --
+          args:
+            - --model
+            - /models/nvidia/Llama-3.3-70B-Instruct-FP8
+            - --tensor-parallel-size
+            - "1"
+            - --trust-remote-code
+            - --gpu-memory-utilization
+            - "0.90"
+            - --max-num-batched-tokens
+            - "16384"
+            - --max-num-seqs
+            - "64"
+            - --speculative_config
+            - '{"model": "/models/yuhuili/EAGLE3-LLaMA3.3-Instruct-70B", "num_speculative_tokens": 3, "method": "eagle3", "draft_tensor_parallel_size": 1}'
+          volumeMounts:
+            - name: cuda-compat
+              mountPath: /usr/local/cuda/compat/lib.real
+              readOnly: true
