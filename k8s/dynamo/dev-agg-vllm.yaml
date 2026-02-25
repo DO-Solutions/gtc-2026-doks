@@ -77,6 +77,12 @@ spec:
             - --tensor-parallel-size
             - "1"
             - --trust-remote-code
+            - --gpu-memory-utilization
+            - "0.95"
+            - --max-num-batched-tokens
+            - "16384"
+            - --max-num-seqs
+            - "128"
           volumeMounts:
             - name: cuda-compat
               mountPath: /usr/local/cuda/compat/lib.real

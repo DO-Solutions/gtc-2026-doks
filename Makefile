@@ -37,10 +37,10 @@ export TF_VAR_digitalocean_token    := $(DIGITALOCEAN_TOKEN)
 	deploy-gateway test-gateway \
 	demo-status demo-start demo-auto demo-stop demo-reset demo-dashboard demo-ui \
 	test-inference test-kv-cache validate-all \
-	capacity-test benchmark-sweep collect-conversations
+	capacity-test benchmark-sweep collect-conversations phase1-sweep
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # --- Environment ---
 
@@ -284,5 +284,19 @@ collect-conversations: ## Collect conversations from load generator and create b
 	@kill %1 2>/dev/null || true
 	@echo ""
 	@echo "Done. Upload the ShareGPT dataset to NFS and update DATASET_PATH in the benchmark Job YAML."
+
+phase1-sweep: check-env ## Run Phase 1 parameter sweep benchmark (~4-6 hours)
+	@echo "Creating ConfigMap with sweep + benchmark scripts..."
+	kubectl --context $(CONTEXT) create configmap vllm-phase1-scripts \
+		--from-file=vllm-phase1-sweep.sh=scripts/vllm-phase1-sweep.sh \
+		--from-file=vllm-benchmark.sh=scripts/vllm-benchmark.sh \
+		-n dynamo-workload --dry-run=client -o yaml | kubectl --context $(CONTEXT) apply -f -
+	@echo "Deleting previous sweep Job (if any)..."
+	-kubectl --context $(CONTEXT) delete job vllm-phase1-sweep -n dynamo-workload --ignore-not-found=true
+	@echo "Applying Phase 1 sweep Job..."
+	kubectl --context $(CONTEXT) apply -f k8s/benchmarks/vllm-phase1-sweep-job.yaml
+	@echo ""
+	@echo "Phase 1 sweep Job submitted. Monitor with:"
+	@echo "  kubectl logs -f job/vllm-phase1-sweep -n dynamo-workload --context $(CONTEXT)"
 
 validate-all: test-inference test-kv-cache ## Run all validation tests

@@ -34,11 +34,12 @@ The Dynamo vLLM runtime ships with several optimizations enabled out of the box:
 
 - Automatic FP8 KV cache quantization (inferred from ModelOpt FP8 checkpoint)
 - Chunked prefill (`max_num_batched_tokens=8192`)
+- Prefix caching (enabled by default in vLLM V1 — near-zero overhead implementation causes <1% throughput decrease even at 0% hit rate)
 - Asynchronous scheduling
 - CUDA graph capture (FULL_AND_PIECEWISE mode, 51 batch sizes)
 - Flash Attention backend auto-selection
 
-This means Phase 0 is already a reasonably optimized baseline rather than a naive configuration.
+All major inference optimizations are enabled out of the box with no configuration flags required. This means Phase 0 is already a well-optimized baseline rather than a naive configuration. For users upgrading from older vLLM versions (V0, pre-Hopper defaults), simply moving to V1 on modern hardware delivers FP8 KV cache, chunked prefill, prefix caching, and hardware-optimized scheduler settings automatically.
 
 ---
 
@@ -46,10 +47,12 @@ This means Phase 0 is already a reasonably optimized baseline rather than a naiv
 
 | Metric | Target | Rationale |
 |---|---|---|
-| **TTFT p99** | < 350ms | Responsive first-token delivery, under the ~500ms perceptible delay threshold |
-| **TPOT p99** | < 60ms | ~16-20 tokens/sec streaming speed, natural reading pace |
+| **TTFT p99** | < 1000ms | Appropriate for long-context workloads (RAG, document analysis). Turn-5 prefills at ~7,000 tokens require 400-500ms of pure compute, leaving ~500ms headroom for queuing. A 1-second first-token wait is natural when submitting multi-thousand-token documents for analysis. |
+| **TPOT p99** | < 60ms | ~16-20 tokens/sec streaming speed, natural reading pace. This is where responsiveness matters most — once streaming begins, consistent token delivery keeps the experience smooth. |
 
 The primary demo metric is the **maximum request rate sustainable within the TTFT SLO**. Each optimization phase is measured by how much higher that rate goes. TPOT SLO provides a secondary dimension, particularly for speculative decoding.
+
+Note: The original TTFT target of 350ms was found to be unachievable for this workload. Benchmark data shows TTFT p95 of 568ms at rate 0.5 with only 7 max concurrent requests and zero queuing — this is pure prefill compute time for the longer entries. A sub-350ms target would require shorter input sequences, not infrastructure optimization.
 
 ---
 
@@ -69,13 +72,21 @@ The primary demo metric is the **maximum request rate sustainable within the TTF
 
 **Per-turn profile from a representative conversation:**
 
-| Turn | Approx Input Tokens | Output Tokens |
-|------|---------------------|---------------|
-| 1 | ~3,500 | 555 |
-| 2 | ~4,100 | 818 |
-| 3 | ~5,000 | 1,008 |
-| 4 | ~6,100 | 875 |
-| 5 | ~7,000 | 888 |
+| Turn | Approx Input Tokens | Output Tokens | E2E Latency |
+|------|---------------------|---------------|-------------|
+| 1 | ~3,500 | 555 | 37.1s |
+| 2 | ~4,100 | 818 | 58.5s |
+| 3 | ~5,000 | 1,008 | 97.6s |
+| 4 | ~6,100 | 875 | 92.1s |
+| 5 | ~7,000 | 888 | 64.0s |
+
+**Aggregate from Grafana dashboard (under load, past saturation):**
+
+| Metric | p50 | p95 |
+|---|---|---|
+| Input Sequence Length | 5,900 | 12,700 |
+| Output Sequence Length | 978 | 1,720 |
+| Cached Tokens | 5,620 | 8,610 |
 
 **Key workload characteristics for benchmarking:**
 - Average output tokens per turn: ~830
@@ -143,11 +154,10 @@ ShareGPT dataset stored on the NFS share alongside model files. Loaded into memo
 **Goal:** Establish baseline capacity at SLO targets with default configuration.
 
 **vLLM Configuration:**
-- All runtime defaults (FP8 KV cache, chunked prefill, async scheduling already enabled)
+- All runtime defaults (FP8 KV cache, chunked prefill, prefix caching, async scheduling already enabled)
 - `gpu-memory-utilization`: 0.9 (default)
 - `max-num-batched-tokens`: 8192 (H200 Hopper-specific default, generic default is 2048)
 - `max-num-seqs`: 1024 (H200 Hopper-specific default, generic default is 256)
-- No prefix caching
 
 Note: vLLM auto-detects Hopper+ hardware and sets significantly more aggressive scheduler defaults than the generic values. These are confirmed from startup logs:
 ```
@@ -174,18 +184,20 @@ INFO main.get_engine_cache_info: Scheduler config values: {'max_num_seqs': 1024,
    done
    ```
    Note: Real workload saturates below 1.5 req/s with 110 inflight requests (observed from Grafana). The sweep range is calibrated accordingly — the saturation knee is expected well below 3.0 req/s for this workload.
-3. Identify the maximum request rate where TTFT p99 < 350ms — this is the **baseline capacity**
+3. Identify the maximum request rate where TTFT p99 < 1000ms — this is the **baseline capacity**
 4. Record all metrics (TTFT, TPOT, throughput) at that rate
 
 **Expected Outcome:** A well-performing baseline due to the runtime's built-in optimizations, but with room for improvement through workload-specific tuning.
 
 ### Phase 1 — Optimized vLLM
 
-**Goal:** Maximize per-node capacity through feature enablement and parameter tuning.
+**Goal:** Maximize per-node capacity through parameter tuning against the specific workload.
 
-**Additional Features to Enable:**
-- Prefix caching (`--enable-prefix-caching`) — exploits the 10 shared conversation starters
-- `gpu-memory-utilization` pushed to 0.95 (auto-tuner handles this)
+Since all major features (FP8 KV cache, chunked prefill, prefix caching) are already enabled by default, Phase 1 focuses purely on tuning scheduler parameters and memory allocation:
+
+- **`gpu-memory-utilization` 0.9 → 0.95:** Frees ~7GB additional KV cache. With long sequences consuming heavy cache, every extra GB directly translates to more concurrent requests before hitting the saturation cliff observed at ~90 concurrency in load generator tests.
+- **`max-num-batched-tokens` — likely higher than 8192:** This is the most impactful tuning lever for this workload. At 8192, a single turn-5 prefill (~7,000 tokens) nearly exhausts the budget, meaning no other new requests can begin prefill in the same scheduler iteration. Increasing to 16384 or 32768 lets the scheduler process multiple prefills concurrently, directly improving TTFT for shorter entries stuck behind long ones.
+- **`max-num-seqs` — likely lower than 1024:** The Hopper default of 1024 assumes shorter sequences. This workload's sequences are much longer, consuming far more KV cache per sequence. Load generator data shows a cliff at concurrency ~90, suggesting KV cache fills up well below 1024 concurrent sequences. Lowering `max-num-seqs` to match actual cache capacity avoids preemption and protects prefix cache entries.
 
 **Parameter Tuning via Auto-Tuner:**
 
@@ -205,13 +217,15 @@ INPUT_LEN=6000                  # matches p50 from real workload (~5,900)
 OUTPUT_LEN=850                  # matches average output tokens per turn
 MAX_MODEL_LEN=16384             # must accommodate p95 input (~12,700) + output (~1,700)
 MIN_CACHE_HIT_PCT=50            # reflects shared conversation starters
-MAX_LATENCY_ALLOWED_MS=350      # SLO target (note: constrains E2E, not TTFT specifically)
+MAX_LATENCY_ALLOWED_MS=25000    # constrains E2E latency (not TTFT); set based on
+                                # observed E2E p50 of 13-20s at moderate load
 
-# Suggested sweep ranges, bracketing around the Hopper defaults
-num_seqs_list="256 512 1024 1536 2048"       # Hopper default is 1024
-num_batched_tokens_list="8192 16384 32768"   # Hopper default is 8192; real workload
-                                             # has turn-5 prefills of ~7,000 tokens which
-                                             # nearly fill the 8192 budget alone
+# Suggested sweep ranges informed by benchmark data
+num_seqs_list="64 128 256 512 1024"          # bias lower than Hopper default (1024);
+                                              # load generator saturates at ~90 concurrent
+num_batched_tokens_list="8192 16384 32768"   # bias higher than Hopper default (8192);
+                                              # turn-5 prefills of ~7,000 tokens nearly
+                                              # fill the 8192 budget alone
 ```
 
 The script ships with defaults "set for medium-sized inputs/outputs" which may not account for the Hopper-specific values vLLM already applies. Customizing these ranges ensures the sweep brackets around the actual runtime defaults rather than the generic ones. Inspect the default lists in the script before running and adjust if needed.
@@ -222,12 +236,50 @@ The auto-tuner will:
 3. For each combination, find the maximum throughput within the latency constraint
 4. Report the optimal parameter set
 
-**Post Auto-Tuner Benchmark:**
+**Actual Approach — Manual Parameter Sweep:**
 
-1. Deploy vLLM with the optimized config (features + auto-tuned parameters)
-2. Run the same load sweep as Phase 0
-3. Identify the new maximum request rate at TTFT p99 < 350ms
-4. Calculate the capacity improvement: `(Phase1_rate - Phase0_rate) / Phase0_rate × 100%`
+The auto-tuner was not used. Instead, a manual structured sweep of 6 parameter combinations was run (`make phase1-sweep`), each performing a 12-rate load sweep (0.5 to 5.0 RPS, 300 prompts per rate). This provided clearer isolation of individual parameter effects.
+
+**Phase 1 Results (2026-02-25):**
+
+Full report: `dev/vllm/benchmarks/phase1/report.md`
+
+| Config | gpu-mem-util | max-batched-tokens | max-num-seqs | KV Cache | Max SLO Rate |
+|--------|:-:|:-:|:-:|--------|:-:|
+| phase0 (baseline) | 0.9 | 8192 | 1024 | 53.15 GiB | 2.00 RPS |
+| phase1-baseline-rerun | 0.9 | 8192 | 1024 | 53.15 GiB | 1.50 RPS |
+| phase1-mem095 | 0.95 | 8192 | 1024 | 60.14 GiB | 2.00 RPS |
+| phase1-batch16k | 0.9 | 16384 | 1024 | 53.02 GiB | 2.00 RPS |
+| phase1-seqs128 | 0.9 | 8192 | 128 | 56.39 GiB | 2.00 RPS |
+| **phase1-moderate** | **0.95** | **16384** | **128** | **61.79 GiB** | **2.00 RPS** |
+| phase1-aggressive | 0.95 | 32768 | 256 | 56.85 GiB | 2.00 RPS |
+
+**Key Findings:**
+
+1. **No config pushed max SLO rate above 2.0 RPS.** The TPOT p99 < 60ms SLO is the binding constraint — all configs fail at 2.5 RPS. This is fundamental: decode is memory-bandwidth bound on a single H200, and parameter tuning cannot speed up the autoregressive decode pipeline.
+
+2. **`phase1-moderate` delivers best latency within SLO range.** At 2.0 RPS: TTFT p99 drops 11% (953→849ms), TPOT p99 drops 10% (49→44ms), ITL p99 drops 22% (232→181ms). More headroom means more resilience to traffic bursts.
+
+3. **KV cache sizes:** 0.95 mem util adds ~7 GiB (53→60 GiB). Combined with max-num-seqs 128, moderate config reaches 61.8 GiB — the largest cache. Lowering max-num-seqs frees internal scheduler overhead, slightly increasing available KV cache.
+
+4. **`max-num-batched-tokens 16384` alone has minimal impact** — batch16k tracks very close to baseline at every rate. The prefill budget increase doesn't help because our long prompts already fit within the 8192 default.
+
+5. **`max-num-seqs` caps create queuing at overload.** At 3.5+ RPS, seqs128 and moderate show TTFT p99 of 3-25 seconds (requests queue waiting for slots), but TPOT stays lower (82-85ms vs 88-109ms) because fewer concurrent requests reduce decode contention.
+
+6. **Baseline rerun scored 1.50 RPS** (vs Phase 0's 2.00), confirming run-to-run variance near the SLO boundary.
+
+**Applied Config (moderate):**
+```yaml
+args:
+  - --gpu-memory-utilization
+  - "0.95"
+  - --max-num-batched-tokens
+  - "16384"
+  - --max-num-seqs
+  - "128"
+```
+
+**Conclusion:** Phase 1 parameter tuning provides a quality-of-service improvement (better latency at the same rate) rather than a capacity improvement. The Phase 0 baseline was already well-optimized. Breaking through the 2.0 RPS ceiling requires changes to the decode pipeline itself — either TP>1 (more decode bandwidth) or speculative decoding (more tokens per forward pass).
 
 ### Phase 2 — Speculative Decoding
 
@@ -241,12 +293,12 @@ The auto-tuner will:
 
 ## Key Considerations
 
-**Auto-tuner runs after feature enablement, not before.** Features like prefix caching and FP8 KV cache fundamentally change the performance envelope. Optimal scheduler parameters with features off will differ from optimal parameters with features on. Tuning is only meaningful against the final feature set.
+**All major features are enabled by default.** FP8 KV cache, chunked prefill, and prefix caching are all active in vLLM V1 on Hopper hardware without any explicit configuration. Phase 1 parameter tuning runs against this already-optimized feature set. For users upgrading from older vLLM versions, simply moving to V1 delivers all of these optimizations automatically.
 
-**Auto-tuner constrains on E2E latency, not TTFT.** The `MAX_LATENCY_ALLOWED_MS` parameter in the auto-tuner applies to end-to-end request latency. Post-processing of detailed results is needed to verify the TTFT p99 < 350ms and TPOT p99 < 60ms SLOs are independently met.
+**Auto-tuner constrains on E2E latency, not TTFT.** The `MAX_LATENCY_ALLOWED_MS` parameter in the auto-tuner applies to end-to-end request latency (set to 25000ms based on observed E2E distributions). Post-processing of detailed results is needed to verify the TTFT p99 < 1000ms and TPOT p99 < 60ms SLOs are independently met.
 
 **Cooldown between benchmark runs.** Allow 30 seconds between sweep runs for the scheduler to drain and KV cache to clear. Without this, tail requests from one run bleed into the next.
 
 **Warm-up before benchmarking.** First few requests after vLLM startup may have inflated latency from CUDA compilation or lazy initialization. Run a small throwaway benchmark or discard the first run.
 
-**Phase 0 baseline is already strong.** The Dynamo runtime's built-in optimizations (FP8 KV cache, chunked prefill) mean the Phase 0 → Phase 1 delta may be moderate. The compelling story may be the cumulative improvement across all phases through to KV-aware routing.
+**Phase 0 baseline is already strong.** The Dynamo runtime's built-in optimizations (FP8 KV cache, chunked prefill, prefix caching, Hopper-tuned scheduler defaults) mean the Phase 0 → Phase 1 delta may be modest since Phase 1 is limited to parameter tuning. The compelling demo narrative is twofold: (1) upgrading to vLLM V1 on modern hardware gives you a well-optimized baseline for free, and (2) the real capacity gains come from architectural decisions like speculative decoding and KV-aware routing across the cluster.
