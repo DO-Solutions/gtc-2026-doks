@@ -75,6 +75,21 @@
 | 110 | 1.7% | |
 | 120 | 0.0% | 2 runs excluded (7-8% err); only 1 valid run |
 
+## Actual RPS (Conversation Starts/s)
+
+| Concurrency | Actual RPS |
+|:-----------:|:----------:|
+| 50 | 1.21 |
+| 60 | 1.51 |
+| 70 | 1.51 |
+| 80 | 1.53 |
+| 90 | 1.45 |
+| 100 | 1.46 |
+| 110 | 1.54 |
+| 120 | 1.62 |
+
+> **Note:** Actual RPS measures the conversation start rate (`loadgen_requests_total`), not individual turn rate. Each conversation takes 3–5 turns over 40–90s, so the effective start rate is bounded by concurrency ÷ avg conversation duration (~1.2–1.6 conversations/s). The target RPS of 10.0 is never reached because conversations are long-lived — concurrency, not arrival rate, is the binding constraint.
+
 ## Analysis
 
 ### TPOT Degradation Curve
@@ -100,6 +115,7 @@ p95:  46ms  49ms  57ms  61ms  83ms  86ms  95ms  95ms
 4. **TTFT becomes unstable** above concurrency 90 — p95 spikes to multi-second values while p50 remains ~230-260ms, indicating intermittent queuing.
 5. **Error rates** emerge at concurrency 110+ and become persistent at 120, where 2/3 runs exceeded 5% errors.
 6. **End-to-end latency p95** roughly doubles from 47s (conc 50) to 94s (conc 120).
+7. **Actual RPS is flat at ~1.2–1.6 conversations/s** across all concurrency levels — the system is concurrency-bound, not arrival-rate-bound. Higher concurrency increases queue depth and latency but barely increases throughput.
 
 ### Source Data
 
