@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: vllm-benchmark
+  name: vllm-benchmark-specdecode
   namespace: dynamo-workload
 spec:
   backoffLimit: 0
@@ -36,11 +36,11 @@ spec:
             - /scripts/vllm-benchmark.sh
           env:
             - name: RESULT_LABEL
-              value: "phase3-eagle3"
+              value: "phase3-draft-8b"
             - name: VLLM_EXTRA_ARGS
-              value: "--gpu-memory-utilization 0.90 --max-num-batched-tokens 16384 --max-num-seqs 64 --speculative-config {\"model\":\"/models/yuhuili/EAGLE3-LLaMA3.3-Instruct-70B\",\"num_speculative_tokens\":3,\"method\":\"eagle3\",\"draft_tensor_parallel_size\":1}"
+              value: "--gpu-memory-utilization 0.90 --max-num-batched-tokens 16384 --max-num-seqs 64 --speculative-config {\"model\":\"/models/nvidia/Llama-3.1-8B-Instruct-FP8\",\"num_speculative_tokens\":5,\"draft_tensor_parallel_size\":1}"
             - name: BENCHMARK_RATES
-              value: "0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0"
+              value: "0.5 0.75 1.0 1.25 1.5 2.0 2.5 3.0"
             - name: NUM_PROMPTS
               value: "300"
             - name: MODEL
@@ -49,6 +49,10 @@ spec:
               value: "1"
             - name: DATASET_PATH
               value: "/models/benchmarks/conversations-sharegpt-20260224-205203.json"
+            - name: BENCH_BACKEND
+              value: "openai-chat"
+            - name: BENCH_ENDPOINT
+              value: "/v1/chat/completions"
           volumeMounts:
             - name: nfs
               mountPath: /models

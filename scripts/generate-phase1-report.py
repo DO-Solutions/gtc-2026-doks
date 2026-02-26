@@ -64,6 +64,24 @@ COMBO_PARAMS = {
         "max_num_seqs": 256,
         "description": "Combined aggressive tuning",
     },
+    "phase3-eagle3": {
+        "gpu_memory_utilization": 0.90,
+        "max_num_batched_tokens": 16384,
+        "max_num_seqs": 64,
+        "description": "EAGLE-3 speculative decoding (num_speculative_tokens=3)",
+    },
+    "phase3-eagle3-chat": {
+        "gpu_memory_utilization": 0.90,
+        "max_num_batched_tokens": 16384,
+        "max_num_seqs": 64,
+        "description": "EAGLE-3 speculative decoding (chat endpoint, num_speculative_tokens=3)",
+    },
+    "phase3-draft-8b": {
+        "gpu_memory_utilization": 0.90,
+        "max_num_batched_tokens": 16384,
+        "max_num_seqs": 64,
+        "description": "Draft-model spec decode (Llama 3.1 8B FP8, num_speculative_tokens=5)",
+    },
 }
 
 

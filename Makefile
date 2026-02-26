@@ -10,7 +10,7 @@ TF_INFRA  := terraform/infra
 TF_CLUSTER := terraform/cluster-config
 TF_VARS   := -var-file=../environments/$(ENV).tfvars
 
-MODEL     ?= nvidia/Llama-3.3-70B-Instruct-FP8
+MODEL     ?= nvidia/Llama-3.1-70B-Instruct-FP8
 MODEL_SLUG = $(shell echo '$(subst /,--,$(MODEL))' | tr '[:upper:]' '[:lower:]')
 CONTEXT   ?= do-nyc2-gtc-demo
 

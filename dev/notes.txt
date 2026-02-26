@@ -1,0 +1,50 @@
+  What happened                                                                                                                                                                         
+                                                                                                                                                                                      
+  We collected 100 multi-turn conversations from the load generator and converted them to ShareGPT format for use with vllm bench serve. When the benchmark ran, every single entry was 
+  filtered out and the benchmark crashed with IndexError: Cannot choose from an empty sequence.                                                                                         
+
+  Root cause
+
+  vLLM's benchmark tool has a function called is_valid_sequence() in vllm/benchmarks/datasets.py that filters dataset entries before benchmarking. It has hardcoded defaults:
+
+  def is_valid_sequence(
+      prompt_len: int,
+      output_len: int,
+      min_len: int = 4,
+      max_prompt_len: int = 1024,    # <-- this
+      max_total_len: int = 2048,     # <-- and this
+      ...
+  ) -> bool:
+
+  Any prompt longer than 1024 tokens is silently dropped. There's no CLI flag to override this.
+
+  Why our data is affected
+
+  The generic ShareGPT dataset has short prompts (~207 tokens average) — well under 1024. Our collected conversations are multi-turn with Wikipedia passages, so:
+
+  - Turn 0: system prompt + passage + question → ~4,500 tokens
+  - Turn 4: all prior turns accumulated → ~10,000 tokens
+
+  All 500 entries exceed the 1024 token limit → 0 valid samples → crash.
+
+  The fix
+
+  The patch I was adding to vllm-benchmark.sh uses sed to raise those defaults in the container at runtime, but only when using a custom dataset (the default ShareGPT path is
+  unaffected):
+
+  sed -i 's/max_prompt_len: int = 1024/max_prompt_len: int = 16384/' "${DATASETS_PY}"
+  sed -i 's/max_total_len: int = 2048/max_total_len: int = 32768/' "${DATASETS_PY}"
+
+  16384 and 32768 give plenty of headroom for our longest entries (~10K prompt + ~1.5K completion).
+
+  Alternatives
+
+  1. Truncate the dataset — defeat the purpose, we want realistic long-context benchmarks
+  2. Use --dataset-name random — gives correct token counts but loses realistic content distribution
+  3. Fork/patch the vLLM image — heavyweight for a hardcoded default
+  4. Runtime sed patch — what I'm doing; simple, scoped to custom datasets only, no image changes needed
+
+  Want me to proceed with the sed patch approach, or would you prefer a different direction?
+
+---
+

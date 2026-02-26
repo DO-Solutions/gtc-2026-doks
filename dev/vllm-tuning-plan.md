@@ -281,9 +281,43 @@ args:
 
 **Conclusion:** Phase 1 parameter tuning provides a quality-of-service improvement (better latency at the same rate) rather than a capacity improvement. The Phase 0 baseline was already well-optimized. Breaking through the 2.0 RPS ceiling requires changes to the decode pipeline itself — either TP>1 (more decode bandwidth) or speculative decoding (more tokens per forward pass).
 
+
 ### Phase 2 — Speculative Decoding
 
-*To be planned.* Primary impact on TPOT rather than TTFT. Adds to per-node optimization before moving to multi-node routing.
+**Goal:** Reduce per-request decode latency (TPOT) using EAGLE-3 speculative decoding.
+
+**Model Upgrade:** This phase requires switching from Llama 3.1 70B to Llama 3.3 70B to access the EAGLE-3 speculator. Llama 3.3 shares the same architecture and tokenizer as 3.1 (it's essentially a better-trained version), so no infrastructure changes are required — just a model swap. This is a realistic trade-off that customers would face: upgrading the base model to unlock speculative decoding support.
+
+**Models:**
+- Base model: `nvidia/Llama-3.3-70B-Instruct-FP8` (ModelOpt checkpoint, same quantization approach as 3.1)
+- EAGLE-3 speculator: `yuhuili/EAGLE3-LLaMA3.3-Instruct-70B`
+
+**How EAGLE-3 works:** Unlike traditional draft-model speculative decoding (e.g., using Llama 8B to draft for Llama 70B), EAGLE-3 trains a lightweight draft head (1-2 transformer layers) that plugs directly into the target model's hidden states. This means minimal memory overhead compared to loading a full separate draft model, which preserves KV cache capacity for concurrent requests.
+
+**vLLM Configuration:**
+```bash
+vllm serve nvidia/Llama-3.3-70B-Instruct-FP8 \
+  --speculative-config '{"model": "yuhuili/EAGLE3-LLaMA3.3-Instruct-70B",
+    "num_speculative_tokens": 3, "method": "eagle3",
+    "draft_tensor_parallel_size": 1}'
+```
+
+The draft head runs at TP=1, matching the existing single-GPU-per-node architecture. No changes to the cluster topology.
+
+**Benchmark Procedure:**
+
+1. Swap model to Llama 3.3 70B FP8 **without** speculative decoding
+2. Re-run the load sweep to confirm comparable baseline performance to Llama 3.1
+3. Enable EAGLE-3 speculative decoding
+4. Re-run the load sweep
+5. Compare TPOT improvement — expect 1.5-2x reduction at moderate concurrency
+
+**Expected Impact:**
+- **TPOT:** Significant improvement. With baseline TPOT p50 of ~35-55ms, speculative decoding could bring this to ~20-30ms at moderate load. This is where the bulk of per-request time is spent — decode dominates E2E by roughly 85:1 over prefill.
+- **TTFT:** Minimal impact. Speculative decoding affects the decode phase, not prefill.
+- **Throughput at high concurrency:** Benefit diminishes as GPU becomes compute-saturated. The extra forward passes for draft verification add overhead when the GPU is already fully utilized. This is expected and well-documented behavior.
+
+**Demo Narrative:** The diminishing benefit at high concurrency naturally leads into Phase 3 (KV-aware routing). By distributing load across 4 nodes so each stays in the moderate-concurrency sweet spot, speculative decoding remains effective across the cluster. The two optimizations are complementary — speculative decode improves per-request latency, KV-aware routing keeps each node in the zone where that improvement holds.
 
 ### Phase 3 — KV Cache-Aware Routing
 

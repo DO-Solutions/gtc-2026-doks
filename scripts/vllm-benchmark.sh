@@ -9,6 +9,8 @@
 #   MODEL             — model path (default: /models/nvidia/Llama-3.1-70B-Instruct-FP8)
 #   TP_SIZE           — tensor parallel size (default: 1)
 #   DATASET_PATH      — path to ShareGPT JSON dataset (default: auto-downloads ShareGPT_V3)
+#   BENCH_BACKEND     — vllm bench serve backend (default: "vllm"; use "openai-chat" for chat endpoint)
+#   BENCH_ENDPOINT    — API endpoint path (default: "/v1/completions"; use "/v1/chat/completions" for chat)
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
@@ -21,6 +23,8 @@ TP_SIZE="${TP_SIZE:-1}"
 PORT=8000
 DEFAULT_DATASET="/models/benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json"
 DATASET_PATH="${DATASET_PATH:-${DEFAULT_DATASET}}"
+BENCH_BACKEND="${BENCH_BACKEND:-vllm}"
+BENCH_ENDPOINT="${BENCH_ENDPOINT:-/v1/completions}"
 TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
 RESULT_DIR="/models/benchmarks/${RESULT_LABEL}/${TIMESTAMP}"
 SERVER_LOG="/tmp/vllm-server.log"
@@ -135,7 +139,8 @@ cp "${SERVER_LOG}" "${RESULT_DIR}/server.log"
 # ── 6. Warm-up run ─────────────────────────────────────────────────────────
 echo "==> Running warm-up (10 prompts at rate 0.5)..."
 vllm bench serve \
-    --backend vllm \
+    --backend "${BENCH_BACKEND}" \
+    --endpoint "${BENCH_ENDPOINT}" \
     --base-url "http://localhost:${PORT}" \
     --model "${MODEL}" \
     --dataset-name sharegpt \
@@ -171,7 +176,8 @@ for rate in ${BENCHMARK_RATES}; do
     fi
 
     vllm bench serve \
-        --backend vllm \
+        --backend "${BENCH_BACKEND}" \
+        --endpoint "${BENCH_ENDPOINT}" \
         --base-url "http://localhost:${PORT}" \
         --model "${MODEL}" \
         --dataset-name sharegpt \
