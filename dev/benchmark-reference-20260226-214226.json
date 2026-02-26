@@ -1,5 +1,5 @@
 {
-  "generated": "2026-02-26T21:42:26Z",
+  "generated": "2026-02-26T21:59:53Z",
   "metric": "loadgen_ttft_all_seconds",
   "target_rps": 10.0,
   "levels": [
@@ -131,14 +131,14 @@
         "latency_p95_ms": 48581.1
       },
       "kv_aware": {
-        "ttft_p50_ms": null,
-        "ttft_p95_ms": null,
-        "kv_hit_rate_pct": 0,
-        "tops": null,
-        "tpot_p50_ms": null,
-        "tpot_p95_ms": null,
-        "latency_p50_ms": null,
-        "latency_p95_ms": null
+        "ttft_p50_ms": 323.9,
+        "ttft_p95_ms": 1262.3,
+        "kv_hit_rate_pct": 95.4,
+        "tops": 2817.911111,
+        "tpot_p50_ms": 38.9,
+        "tpot_p95_ms": 46.8,
+        "latency_p50_ms": 32600.2,
+        "latency_p95_ms": 46279.4
       }
     },
     {
