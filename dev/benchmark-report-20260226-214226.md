@@ -1,6 +1,6 @@
 # Benchmark Sweep: KV Cache Routing vs Round-Robin
 
-**Generated:** 2026-02-26 21:59:53 UTC
+**Generated:** 2026-02-26 22:21:50 UTC
 
 ## Test Methodology
 
@@ -35,7 +35,7 @@
 | 60 | 276ms | 262ms | 5.1% | 664ms | 452ms | 32.0% | 89.2% | 88.0% |
 | 70 | 307ms | 288ms | 6.3% | 647ms | 529ms | 18.3% | 91.0% | 97.0% |
 | 80 | 317ms | 284ms | 10.3% | 699ms | 494ms | 29.2% | 87.4% | 95.9% |
-| 90 | 338ms | 324ms | 4.3% | 662ms | 1262ms | -90.8% | 87.5% | 95.4% |
+| 90 | 338ms | 332ms | 1.9% | 662ms | 542ms | 18.0% | 87.5% | 94.8% |
 | 100 | 325ms | 361ms | -11.2% | 659ms | 572ms | 13.2% | 87.3% | 96.8% |
 | 110 | 361ms | 374ms | -3.6% | 631ms | 540ms | 14.4% | 88.3% | 97.1% |
 | 120 | 382ms | 408ms | -6.7% | 647ms | 563ms | 13.0% | 87.9% | 94.6% |
@@ -63,7 +63,7 @@
 | 60 | 2133.7 | 2278.3 |
 | 70 | 2399.8 | 2512.5 |
 | 80 | 2557.8 | 2740.2 |
-| 90 | 2483.2 | 2817.9 |
+| 90 | 2483.2 | 2944.4 |
 | 100 | 2653.4 | 2785.3 |
 | 110 | 2642.9 | 2730.1 |
 | 120 | 2637.3 | 2831.1 |
@@ -77,7 +77,7 @@
 | 60 | 28ms | 26ms | 30ms | 27ms |
 | 70 | 29ms | 27ms | 31ms | 28ms |
 | 80 | 31ms | 28ms | 33ms | 32ms |
-| 90 | 31ms | 39ms | 48ms | 47ms |
+| 90 | 31ms | 37ms | 48ms | 46ms |
 | 100 | 33ms | 37ms | 49ms | 43ms |
 | 110 | 45ms | 40ms | 49ms | 44ms |
 | 120 | 45ms | 43ms | 49ms | 47ms |
@@ -91,7 +91,7 @@
 | 60 | 24981ms | 24212ms | 30226ms | 27578ms |
 | 70 | 26785ms | 25231ms | 31493ms | 28935ms |
 | 80 | 29182ms | 27097ms | 33236ms | 31737ms |
-| 90 | 30826ms | 32600ms | 48581ms | 46279ms |
+| 90 | 30826ms | 33015ms | 48581ms | 44881ms |
 | 100 | 31207ms | 31460ms | 50182ms | 43869ms |
 | 110 | 33713ms | 34637ms | 49584ms | 44309ms |
 | 120 | 41366ms | 37594ms | 49608ms | 48518ms |
@@ -100,7 +100,7 @@
 
 ```json
 {
-  "generated": "2026-02-26T21:59:53Z",
+  "generated": "2026-02-26T22:21:50Z",
   "metric": "loadgen_ttft_all_seconds",
   "target_rps": 10.0,
   "levels": [
@@ -232,14 +232,14 @@
         "latency_p95_ms": 48581.1
       },
       "kv_aware": {
-        "ttft_p50_ms": 323.9,
-        "ttft_p95_ms": 1262.3,
-        "kv_hit_rate_pct": 95.4,
-        "tops": 2817.911111,
-        "tpot_p50_ms": 38.9,
-        "tpot_p95_ms": 46.8,
-        "latency_p50_ms": 32600.2,
-        "latency_p95_ms": 46279.4
+        "ttft_p50_ms": 331.8,
+        "ttft_p95_ms": 542.4,
+        "kv_hit_rate_pct": 94.8,
+        "tops": 2944.374404,
+        "tpot_p50_ms": 36.8,
+        "tpot_p95_ms": 46.1,
+        "latency_p50_ms": 33015.0,
+        "latency_p95_ms": 44881.3
       }
     },
     {
@@ -321,5 +321,5 @@
 - **TTFT p50 improvement at highest concurrency (120):** -6.7%
 - **Trend:** The TTFT improvement from KV-aware routing **increases** with concurrency (-7.8% at 40 -> -6.7% at 120), as expected -- higher load means more conversations competing for cache, making routing intelligence more valuable.
 - **Peak benefit:** Concurrency 80 shows the maximum p50 improvement at 10.3%.
-- **KV cache hit rate (KV mode):** 88.0% (at 60) to 97.9% (at 50), average 95.6%.
+- **KV cache hit rate (KV mode):** 88.0% (at 60) to 97.9% (at 50), average 95.5%.
 - **KV cache hit rate (RR mode):** 87.3% (at 100) to 100.0% (at 40), average 89.9%.
