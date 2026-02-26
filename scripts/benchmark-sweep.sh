@@ -33,7 +33,7 @@ DGD_NAME="gtc-demo"
 DGD_LABEL="nvidia.com/dynamo-graph-deployment-name=${DGD_NAME}"
 
 # Prometheus label selectors
-COMPONENT_NS='dynamo_namespace="dynamo-workload-gtc-demo"'
+COMPONENT_NS='namespace="dynamo-workload"'
 
 # ── Argument parsing ────────────────────────────────────────────────────────
 usage() {
@@ -134,6 +134,21 @@ start_port_forward() {
   info "${label}: ready"
 }
 
+ensure_port_forwards() {
+  # Re-establish loadgen port-forward if dead
+  if ! curl -sf -o /dev/null --max-time 2 "http://localhost:${LOADGEN_PORT}/api/status" 2>/dev/null; then
+    warn "Loadgen port-forward died — re-establishing..."
+    start_port_forward "loadgen" "$LOADGEN_PORT" 3000 "$LOADGEN_NS" \
+      "Load Generator" "/api/status"
+  fi
+  # Re-establish Prometheus port-forward if dead
+  if ! curl -sf -o /dev/null --max-time 2 "http://localhost:${PROM_PORT}/-/ready" 2>/dev/null; then
+    warn "Prometheus port-forward died — re-establishing..."
+    start_port_forward "$PROM_SVC" "$PROM_PORT" 9090 "$PROM_NS" \
+      "Prometheus" "/-/ready"
+  fi
+}
+
 # ── Prometheus instant query ──────────────────────────────────────────────────
 prom_query() {
   local query="$1"
@@ -224,31 +239,47 @@ print('|'.join(avgs))
 
 # ── Load generator API ────────────────────────────────────────────────────────
 loadgen_start() {
-  local conc="$1" rps="$2"
-  local code
-  code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST \
-    "http://localhost:${LOADGEN_PORT}/api/workload/start" \
-    -H 'Content-Type: application/json' \
-    -d "{\"totalRPS\":${rps},\"mix\":{\"a\":1.0},\"maxConcurrency\":${conc}}" 2>/dev/null) || code="000"
+  local conc="$1" rps="$2" attempt=0
+  while [[ $attempt -lt 3 ]]; do
+    local code
+    code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST \
+      "http://localhost:${LOADGEN_PORT}/api/workload/start" \
+      -H 'Content-Type: application/json' \
+      -d "{\"totalRPS\":${rps},\"mix\":{\"a\":1.0},\"maxConcurrency\":${conc}}" 2>/dev/null) || code="000"
 
-  if [[ "$code" == "409" ]]; then
-    warn "Workload already running — updating config instead"
-    loadgen_config "$conc" "$rps"
-    return
-  elif [[ "$code" != "200" ]]; then
-    err "Failed to start workload (HTTP ${code})"
-    return 1
-  fi
-  info "Workload started: concurrency=${conc}, rps=${rps}"
+    if [[ "$code" == "409" ]]; then
+      warn "Workload already running — updating config instead"
+      loadgen_config "$conc" "$rps"
+      return
+    elif [[ "$code" == "200" ]]; then
+      info "Workload started: concurrency=${conc}, rps=${rps}"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    warn "loadgen_start attempt ${attempt} failed (HTTP ${code}), retrying in 5s..."
+    ensure_port_forwards
+    sleep 5
+  done
+  err "Failed to start workload after 3 attempts"
+  return 1
 }
 
 loadgen_config() {
-  local conc="$1" rps="$2"
-  curl -sf -X POST "http://localhost:${LOADGEN_PORT}/api/workload/config" \
-    -H 'Content-Type: application/json' \
-    -d "{\"totalRPS\":${rps},\"mix\":{\"a\":1.0},\"maxConcurrency\":${conc}}" \
-    >/dev/null 2>&1
-  info "Workload updated: concurrency=${conc}, rps=${rps}"
+  local conc="$1" rps="$2" attempt=0
+  while [[ $attempt -lt 3 ]]; do
+    if curl -sf -X POST "http://localhost:${LOADGEN_PORT}/api/workload/config" \
+      -H 'Content-Type: application/json' \
+      -d "{\"totalRPS\":${rps},\"mix\":{\"a\":1.0},\"maxConcurrency\":${conc}}" \
+      >/dev/null 2>&1; then
+      info "Workload updated: concurrency=${conc}, rps=${rps}"
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    warn "loadgen_config attempt ${attempt} failed, retrying in 5s..."
+    sleep 5
+  done
+  err "loadgen_config failed after 3 attempts"
+  return 1
 }
 
 loadgen_stop() {
@@ -538,6 +569,7 @@ run_phase() {
 
   for conc in "${LEVEL_ARRAY[@]}"; do
     echo ""
+    ensure_port_forwards
     echo "┌─ ${mode} @ concurrency=${conc}  RPS=${RPS} ────────────────"
 
     if $first_level; then
