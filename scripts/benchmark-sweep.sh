@@ -644,7 +644,7 @@ if [[ "$MODE" == "both" || "$MODE" == "kv" ]]; then
     set_routing_mode "kv"
     MODE_CHANGED=true
     verify_frontend_mode "kv" 180
-    restart_worker_pods
+    restart_all_dgd_pods
   fi
   sleep 10
 
