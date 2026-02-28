@@ -42,7 +42,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "avg(dynamo_component_kvstats_gpu_cache_usage_percent{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "avg(dynamo_component_kvstats_gpu_cache_usage_percent{namespace=\"dynamo-workload\"})",
           "legendFormat": "Cache Usage",
           "refId": "A"
         }
@@ -66,7 +66,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "avg(dynamo_component_kvstats_gpu_prefix_cache_hit_rate{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "avg(dynamo_component_kvstats_gpu_prefix_cache_hit_rate{namespace=\"dynamo-workload\"})",
           "legendFormat": "Hit Rate",
           "refId": "A"
         }
@@ -88,7 +88,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(dynamo_component_kvstats_active_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "sum(dynamo_component_kvstats_active_blocks{namespace=\"dynamo-workload\"})",
           "legendFormat": "Active",
           "refId": "A"
         }
@@ -110,7 +110,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(dynamo_component_kvstats_total_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"})",
+          "expr": "sum(dynamo_component_kvstats_total_blocks{namespace=\"dynamo-workload\"})",
           "legendFormat": "Total",
           "refId": "A"
         }
@@ -142,7 +142,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_kvstats_gpu_cache_usage_percent{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_kvstats_gpu_cache_usage_percent{namespace=\"dynamo-workload\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -167,7 +167,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_kvstats_gpu_prefix_cache_hit_rate{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_kvstats_gpu_prefix_cache_hit_rate{namespace=\"dynamo-workload\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -190,7 +190,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_kvstats_active_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_kvstats_active_blocks{namespace=\"dynamo-workload\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -213,7 +213,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_kvstats_total_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_kvstats_total_blocks{namespace=\"dynamo-workload\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -236,7 +236,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "dynamo_component_kvstats_active_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"} / dynamo_component_kvstats_total_blocks{dynamo_namespace=\"dynamo_workload_gtc_demo\"}",
+          "expr": "dynamo_component_kvstats_active_blocks{namespace=\"dynamo-workload\"} / dynamo_component_kvstats_total_blocks{namespace=\"dynamo-workload\"}",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
