@@ -140,7 +140,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
+          "expr": "loadgen_ttft_all_seconds{quantile=\"0.95\"}",
           "legendFormat": "p95",
           "refId": "A"
         },
@@ -188,7 +188,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
+          "expr": "loadgen_tpot_all_seconds{quantile=\"0.95\"}",
           "legendFormat": "p95",
           "refId": "A"
         },

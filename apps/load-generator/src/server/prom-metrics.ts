@@ -40,6 +40,14 @@ const ttftAllSummary = new client.Summary({
   ageBuckets: 5,
 });
 
+const tpotAllSummary = new client.Summary({
+  name: 'loadgen_tpot_all_seconds',
+  help: 'Time per output token for all requests (no turn-type split)',
+  percentiles: [0.5, 0.95],
+  maxAgeSeconds: 60,
+  ageBuckets: 5,
+});
+
 const requestsCounter = new client.Counter({
   name: 'loadgen_requests_total',
   help: 'Total requests by turn type and status',
@@ -50,6 +58,9 @@ export function recordPrometheusMetrics(m: RequestMetrics): void {
   // Generic TTFT for all requests
   if (m.ttftMs > 0) {
     ttftAllSummary.observe(m.ttftMs / 1000);
+  }
+  if (m.tpotMs > 0) {
+    tpotAllSummary.observe(m.tpotMs / 1000);
   }
 
   if (!m.itemId) return;
