@@ -1,6 +1,8 @@
+import { useState, useEffect, useRef } from 'react';
 import type { AggregateMetrics, WorkloadConfig } from '../types';
 import { getBenchmark } from '../data/rr-benchmark';
 import { DemoControls } from './DemoControls';
+import { InfoIcon } from './InfoIcon';
 
 interface Props {
   metrics: AggregateMetrics | null;
@@ -64,10 +66,23 @@ function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMet
 export function LiveMetricsPanel({ metrics, running, concurrency, config, onConfigChange }: Props) {
   const bench = getBenchmark(concurrency);
   const hasData = running && metrics && metrics.requestCount > 0;
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openPopover) return;
+    function handleClick(e: MouseEvent) {
+      if (sectionRef.current && !sectionRef.current.contains(e.target as Node)) {
+        setOpenPopover(null);
+      }
+    }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [openPopover]);
 
   return (
-    <div className="insight-panel">
-      <h2>Live vs Round-Robin Benchmark</h2>
+    <div className="insight-panel" ref={sectionRef} onClick={() => setOpenPopover(null)}>
+      <h2><span className="section-title">Live vs Round-Robin Benchmark <InfoIcon id="live-header" description="Live latency metrics compared against round-robin baseline benchmarks. Values are averaged over the last 60 seconds." openPopover={openPopover} setOpenPopover={setOpenPopover} /></span></h2>
       <div className="slo-subtitle">SLO: TTFT p95 &lt; 600ms &middot; TPOT p95 &lt; 60ms</div>
 
       <DemoControls config={config} running={running} onConfigChange={onConfigChange} />

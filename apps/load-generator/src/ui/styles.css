@@ -385,6 +385,11 @@ input[type="range"]:disabled {
   letter-spacing: 0.05em;
 }
 
+.section-title {
+  position: relative;
+  display: inline;
+}
+
 .metric-label {
   position: relative;
 }

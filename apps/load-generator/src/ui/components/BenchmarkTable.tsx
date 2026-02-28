@@ -1,4 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
 import { getAllBenchmarkLevels, getBenchmark } from '../data/rr-benchmark';
+import { InfoIcon } from './InfoIcon';
 
 function sloClass(metric: 'ttft' | 'tpot', valueMs: number): string {
   const slo = metric === 'ttft' ? 600 : 60;
@@ -15,10 +17,23 @@ function pctImprove(rr: number, kv: number): string {
 
 export function BenchmarkTable() {
   const levels = getAllBenchmarkLevels();
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openPopover) return;
+    function handleClick(e: MouseEvent) {
+      if (sectionRef.current && !sectionRef.current.contains(e.target as Node)) {
+        setOpenPopover(null);
+      }
+    }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [openPopover]);
 
   return (
-    <div className="benchmark-table-section">
-      <h2>Benchmark Comparison (TTFT & TPOT p95)</h2>
+    <div className="benchmark-table-section" ref={sectionRef} onClick={() => setOpenPopover(null)}>
+      <h2><span className="section-title">Static Benchmark Comparison <InfoIcon id="bench-header" description="Pre-recorded p95 latency benchmarks at various concurrency levels. Green = within SLO, yellow = within 90% of SLO, red = exceeds SLO. SLOs: TTFT < 600ms, TPOT < 60ms." openPopover={openPopover} setOpenPopover={setOpenPopover} /></span></h2>
       <div className="benchmark-table-wrap">
         <table className="benchmark-table">
           <thead>

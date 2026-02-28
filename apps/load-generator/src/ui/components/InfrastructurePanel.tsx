@@ -1,4 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
 import type { InfrastructureMetrics, PodInfraMetrics } from '../types';
+import { InfoIcon } from './InfoIcon';
 
 interface Props {
   infra: InfrastructureMetrics | null;
@@ -48,10 +50,10 @@ function PodCard({ pod }: { pod: PodInfraMetrics }) {
   );
 }
 
-function InfraHeader({ infra }: { infra: InfrastructureMetrics | null }) {
+function InfraHeader({ infra, openPopover, setOpenPopover }: { infra: InfrastructureMetrics | null; openPopover: string | null; setOpenPopover: (v: string | null) => void }) {
   return (
     <div className="infra-header">
-      <h2>Infrastructure</h2>
+      <h2><span className="section-title">Infrastructure <InfoIcon id="infra-header" description="Per-worker GPU metrics from DCGM. Util = GPU compute utilization %. Mem = GPU framebuffer memory used / total." openPopover={openPopover} setOpenPopover={setOpenPopover} /></span></h2>
       {infra && (
         <div className="infra-meta">
           <span className="infra-meta-item">
@@ -69,11 +71,25 @@ function InfraHeader({ infra }: { infra: InfrastructureMetrics | null }) {
 }
 
 export function InfrastructurePanel({ infra }: Props) {
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openPopover) return;
+    function handleClick(e: MouseEvent) {
+      if (sectionRef.current && !sectionRef.current.contains(e.target as Node)) {
+        setOpenPopover(null);
+      }
+    }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [openPopover]);
+
   // Not yet connected
   if (!infra) {
     return (
-      <div className="infra-section">
-        <InfraHeader infra={null} />
+      <div className="infra-section" ref={sectionRef} onClick={() => setOpenPopover(null)}>
+        <InfraHeader infra={null} openPopover={openPopover} setOpenPopover={setOpenPopover} />
         <div className="collecting-data">Connecting...</div>
       </div>
     );
@@ -87,8 +103,8 @@ export function InfrastructurePanel({ infra }: Props) {
   // No pods discovered
   if (!infra.podsDiscovered) {
     return (
-      <div className="infra-section">
-        <InfraHeader infra={infra} />
+      <div className="infra-section" ref={sectionRef} onClick={() => setOpenPopover(null)}>
+        <InfraHeader infra={infra} openPopover={openPopover} setOpenPopover={setOpenPopover} />
         {promWarning}
         <div className="collecting-data">Waiting for worker pods...</div>
       </div>
@@ -96,8 +112,8 @@ export function InfrastructurePanel({ infra }: Props) {
   }
 
   return (
-    <div className="infra-section">
-      <InfraHeader infra={infra} />
+    <div className="infra-section" ref={sectionRef} onClick={() => setOpenPopover(null)}>
+      <InfraHeader infra={infra} openPopover={openPopover} setOpenPopover={setOpenPopover} />
       {promWarning}
       <div className="infra-pods-row">
         {infra.pods.map((pod) => (
