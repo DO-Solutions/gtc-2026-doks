@@ -80,8 +80,8 @@ const BENCHMARKS: BenchmarkEntry[] = [
       tops: 2642.6,
     },
     kv: {
-      ttft: { p50: 382, p95: 530 },
-      tpot: { p50: 47, p95: 59 },
+      ttft: { p50: 382, p95: 590 },
+      tpot: { p50: 47, p95: 52 },
       itl: { p50: 43, p95: 46 },
       latency: { p50: 38100, p95: 47200 },
       tops: 2805.7,
