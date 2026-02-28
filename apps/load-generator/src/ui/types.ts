@@ -59,6 +59,7 @@ export interface InfrastructureMetrics {
   collectedAt: number;
   pods: PodInfraMetrics[];
   kvCacheHitRate: number | null;
+  queuedRequests: number | null;
   prometheusAvailable: boolean;
   podsDiscovered: boolean;
   gpuType: string;

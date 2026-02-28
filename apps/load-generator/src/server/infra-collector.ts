@@ -51,6 +51,7 @@ export class InfraCollector {
     // Query Prometheus — all queries in parallel
     let prometheusAvailable = false;
     let kvCacheHitRate: number | null = null;
+    let queuedRequests: number | null = null;
 
     // Per-GPU maps: keyed by "pod:gpuIndex"
     const gpuUtilByPod = new Map<string, Map<number, number>>();
@@ -64,6 +65,7 @@ export class InfraCollector {
         gpuMemFreeResult,
         cachedTokensResult,
         inputTokensResult,
+        queuedResult,
       ] = await Promise.all([
         this.queryPrometheus(
           'avg_over_time(DCGM_FI_DEV_GPU_UTIL{exported_namespace="dynamo-workload"}[1m])'
@@ -80,6 +82,9 @@ export class InfraCollector {
         this.queryPrometheus(
           'rate(dynamo_frontend_input_sequence_tokens_sum[1m])'
         ),
+        this.queryPrometheus(
+          'sum(dynamo_frontend_queued_requests{namespace="dynamo-workload"})'
+        ),
       ]);
 
       prometheusAvailable = true;
@@ -94,6 +99,11 @@ export class InfraCollector {
       const inputRate = inputTokensResult.length > 0 ? parseFloat(inputTokensResult[0].value[1]) : 0;
       if (inputRate > 0) {
         kvCacheHitRate = (cachedRate / inputRate) * 100;
+      }
+
+      // Queued requests
+      if (queuedResult.length > 0) {
+        queuedRequests = parseFloat(queuedResult[0].value[1]);
       }
     } catch (err) {
       console.log(`[infra] Prometheus query failed: ${err instanceof Error ? err.message : err}`);
@@ -127,7 +137,7 @@ export class InfraCollector {
     });
 
     return {
-      collectedAt, pods, kvCacheHitRate, prometheusAvailable, podsDiscovered,
+      collectedAt, pods, kvCacheHitRate, queuedRequests, prometheusAvailable, podsDiscovered,
       gpuType: this.cachedGpuType,
       modelName: this.cachedModelName,
     };

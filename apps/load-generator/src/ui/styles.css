@@ -63,7 +63,7 @@ body {
 /* Layout */
 .main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr auto;
   gap: 24px;
 }
 
@@ -197,7 +197,7 @@ input[type="range"]:disabled {
 .metrics-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .metric-card-compact {
@@ -373,13 +373,13 @@ input[type="range"]:disabled {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 16px;
 }
 
 .metrics-section h2 {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import type { AggregateMetrics } from '../types';
+import type { AggregateMetrics, InfrastructureMetrics } from '../types';
 
 interface Props {
   metrics: AggregateMetrics | null;
   running: boolean;
+  infrastructure: InfrastructureMetrics | null;
 }
 
 const metricDescriptions: Record<string, string> = {
@@ -11,15 +12,16 @@ const metricDescriptions: Record<string, string> = {
   requests: 'Total number of completed requests',
   errors: 'Number of failed requests',
   tops: 'Tokens per second — output token throughput',
+  kvHit: 'KV cache hit rate — percentage of input tokens served from cache',
+  queued: 'Requests currently queued at the Dynamo frontend',
 };
 
 function fmt(n: number, decimals = 0): string {
   return n.toFixed(decimals);
 }
 
-function errorClass(count: number, total: number): string {
-  if (count === 0) return 'healthy';
-  if (total > 0 && count / total < 0.05) return 'warning';
+function errorClass(count: number): string {
+  if (count === 0) return '';
   return 'critical';
 }
 
@@ -37,7 +39,7 @@ function InfoIcon({ id, openPopover, setOpenPopover }: { id: string; openPopover
   );
 }
 
-export function MetricsPanel({ metrics, running }: Props) {
+export function MetricsPanel({ metrics, running, infrastructure }: Props) {
   const m = metrics;
   const noData = !running || !m;
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -73,16 +75,30 @@ export function MetricsPanel({ metrics, running }: Props) {
         </div>
 
         <div className="metric-card-compact">
-          <div className="metric-label">Errors <InfoIcon id="errors" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
-          <div className={`metric-value ${noData ? 'muted' : errorClass(m.errorCount, m.requestCount)}`}>
-            {noData ? '\u2014' : m.errorCount}
+          <div className="metric-label">TOPS <InfoIcon id="tops" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
+          <div className={`metric-value ${noData ? 'muted' : ''}`}>
+            {noData ? '\u2014' : m.tops.toFixed(0)}
           </div>
         </div>
 
         <div className="metric-card-compact">
-          <div className="metric-label">TOPS <InfoIcon id="tops" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
-          <div className={`metric-value ${noData ? 'muted' : ''}`}>
-            {noData ? '\u2014' : m.tops.toFixed(0)}
+          <div className="metric-label">KV Cache Hit <InfoIcon id="kvHit" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
+          <div className={`metric-value ${infrastructure?.kvCacheHitRate == null ? 'muted' : ''}`}>
+            {infrastructure?.kvCacheHitRate != null ? fmt(infrastructure.kvCacheHitRate, 1) + '%' : '\u2014'}
+          </div>
+        </div>
+
+        <div className="metric-card-compact">
+          <div className="metric-label">Queued <InfoIcon id="queued" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
+          <div className={`metric-value ${infrastructure?.queuedRequests == null ? 'muted' : ''}`}>
+            {infrastructure?.queuedRequests != null ? fmt(infrastructure.queuedRequests) : '\u2014'}
+          </div>
+        </div>
+
+        <div className="metric-card-compact">
+          <div className="metric-label">Errors <InfoIcon id="errors" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
+          <div className={`metric-value ${noData ? 'muted' : errorClass(m.errorCount)}`}>
+            {noData ? '\u2014' : m.errorCount}
           </div>
         </div>
       </div>

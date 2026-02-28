@@ -152,7 +152,7 @@ export function App() {
               config={localConfig}
               onConfigChange={handleConfigChange}
             />
-            <MetricsPanel metrics={ws.metrics} running={ws.running} />
+            <MetricsPanel metrics={ws.metrics} running={ws.running} infrastructure={ws.infrastructure} />
           </div>
 
           <BenchmarkTable />

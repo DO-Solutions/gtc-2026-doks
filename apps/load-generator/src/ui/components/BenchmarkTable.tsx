@@ -1,14 +1,10 @@
 import { getAllBenchmarkLevels, getBenchmark } from '../data/rr-benchmark';
 
 function sloClass(metric: 'ttft' | 'tpot', valueMs: number): string {
-  if (metric === 'ttft') {
-    if (valueMs < 600) return 'slo-green';
-    if (valueMs < 800) return 'slo-yellow';
-    return 'slo-red';
-  }
-  if (valueMs < 60) return 'slo-green';
-  if (valueMs < 80) return 'slo-yellow';
-  return 'slo-red';
+  const slo = metric === 'ttft' ? 600 : 60;
+  if (valueMs >= slo) return 'slo-red';
+  if (valueMs >= slo * 0.9) return 'slo-yellow';
+  return 'slo-green';
 }
 
 function pctImprove(rr: number, kv: number): string {
