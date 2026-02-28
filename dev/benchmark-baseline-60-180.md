@@ -49,6 +49,20 @@ Source sweeps:
 | 160 | 422ms | 424ms | -0.5% | 722ms | 704ms | 2.5% | 90.1% | 95.3% |
 | 180 | 413ms | 472ms | -14.1% | 732ms | 3143ms | -329.6% | 88.9% | 94.0% |
 
+### TPOT — Time Per Output Token
+
+Derived as `(Latency - TTFT) / (TOPS / RPS)` — decode time divided by average output tokens per request.
+
+| Concurrency | RR TPOT p50 | KV TPOT p50 | p50 Improvement | RR TPOT p95 | KV TPOT p95 | p95 Improvement |
+|:-----------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|:---------------:|
+| 60 | 29ms | 27ms | 6.9% | 36ms | 31ms | 13.9% |
+| 80 | 33ms | 30ms | 9.1% | 38ms | 37ms | 2.6% |
+| 100 | 37ms | 36ms | 2.7% | 56ms | 49ms | 12.5% |
+| 120 | 47ms | 47ms | 0.0% | 57ms | 59ms | -3.5% |
+| 140 | 53ms | 44ms | 17.0% | 61ms | 54ms | 11.5% |
+| 160 | 52ms | 47ms | 9.6% | 64ms | 55ms | 14.1% |
+| 180 | 55ms | 48ms | 12.7% | 64ms | 54ms | 15.6% |
+
 ### Throughput and Actual RPS
 
 | Concurrency | RR TOPS | KV TOPS | Improvement | RR RPS | KV RPS |

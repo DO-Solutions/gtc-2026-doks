@@ -4,7 +4,7 @@
 ENV       ?= dev
 REGION    ?= atl1
 REGISTRY  := registry.digitalocean.com/do-solutions-sfo3
-TAG       := $(shell date +%Y%m%d)-$(shell git rev-parse --short HEAD)
+TAG       := $(shell date +%Y%m%d-%H%M%S)-$(shell git rev-parse --short HEAD)
 
 TF_INFRA  := terraform/infra
 TF_CLUSTER := terraform/cluster-config

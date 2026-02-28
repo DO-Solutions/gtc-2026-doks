@@ -1,10 +1,13 @@
-import type { AggregateMetrics } from '../types';
+import type { AggregateMetrics, WorkloadConfig } from '../types';
 import { getBenchmark } from '../data/rr-benchmark';
+import { DemoControls } from './DemoControls';
 
 interface Props {
   metrics: AggregateMetrics | null;
   running: boolean;
   concurrency: number;
+  config: WorkloadConfig;
+  onConfigChange: (partial: Partial<WorkloadConfig>) => void;
 }
 
 function sloClass(metric: 'ttft' | 'tpot', valueMs: number): string {
@@ -58,7 +61,7 @@ function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMet
   );
 }
 
-export function LiveMetricsPanel({ metrics, running, concurrency }: Props) {
+export function LiveMetricsPanel({ metrics, running, concurrency, config, onConfigChange }: Props) {
   const bench = getBenchmark(concurrency);
   const hasData = running && metrics && metrics.requestCount > 0;
 
@@ -66,6 +69,8 @@ export function LiveMetricsPanel({ metrics, running, concurrency }: Props) {
     <div className="insight-panel">
       <h2>Live vs Round-Robin Benchmark</h2>
       <div className="slo-subtitle">SLO: TTFT p95 &lt; 600ms &middot; TPOT p95 &lt; 60ms</div>
+
+      <DemoControls config={config} running={running} onConfigChange={onConfigChange} />
 
       {!running ? (
         <div className="collecting-data">Start the workload to see live metrics</div>

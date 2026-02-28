@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import { useHashRouter } from './hooks/useHashRouter';
 import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
-import { DemoControls } from './components/DemoControls';
-
 import { MetricsPanel } from './components/MetricsPanel';
 import { LiveMetricsPanel } from './components/LiveMetricsPanel';
 import { BenchmarkTable } from './components/BenchmarkTable';
@@ -22,7 +20,6 @@ export function App() {
   const ws = useMetrics();
   const { route, navigate } = useHashRouter();
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
-  const [uptimeMs, setUptimeMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Sync config from WebSocket state_change events
@@ -35,17 +32,9 @@ export function App() {
     fetchStatus()
       .then((s) => {
         if (s.config) setLocalConfig(s.config);
-        setUptimeMs(s.uptimeMs);
       })
       .catch(() => {});
   }, []);
-
-  // Update uptime every second while running
-  useEffect(() => {
-    if (!ws.running) return;
-    const t = setInterval(() => setUptimeMs((prev) => prev + 1000), 1000);
-    return () => clearInterval(t);
-  }, [ws.running]);
 
   const handleStart = useCallback(async () => {
     setError(null);
@@ -60,7 +49,6 @@ export function App() {
     setError(null);
     try {
       await stopWorkload();
-      setUptimeMs(0);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -81,15 +69,6 @@ export function App() {
     },
     [localConfig, ws.running],
   );
-
-  const formatUptime = (ms: number): string => {
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    const h = Math.floor(m / 60);
-    if (h > 0) return `${h}h ${m % 60}m`;
-    if (m > 0) return `${m}m ${s % 60}s`;
-    return `${s}s`;
-  };
 
   return (
     <>
@@ -130,17 +109,21 @@ export function App() {
             </a>
           </nav>
         </div>
-        <div className="header-status">
-          <div
-            className={`status-dot ${ws.connected ? (ws.running ? 'running' : 'connected') : ''}`}
-          />
-          <span>
-            {!ws.connected
-              ? 'Disconnected'
-              : ws.running
-                ? `Running (${formatUptime(uptimeMs)})`
-                : 'Idle'}
-          </span>
+        <div className="header-actions">
+          <button
+            className="btn btn-start"
+            disabled={!ws.connected || ws.running}
+            onClick={handleStart}
+          >
+            Start
+          </button>
+          <button
+            className="btn btn-stop"
+            disabled={!ws.connected || !ws.running}
+            onClick={handleStop}
+          >
+            Stop
+          </button>
         </div>
       </header>
 
@@ -161,38 +144,16 @@ export function App() {
             </div>
           )}
 
-          <div className="actions">
-            <button
-              className="btn btn-start"
-              disabled={!ws.connected || ws.running}
-              onClick={handleStart}
-            >
-              Start
-            </button>
-            <button
-              className="btn btn-stop"
-              disabled={!ws.connected || !ws.running}
-              onClick={handleStop}
-            >
-              Stop
-            </button>
-          </div>
-
           <div className="main-grid">
-            <div className="card">
-              <h2>Demo Controls</h2>
-              <DemoControls
-                config={localConfig}
-                running={ws.running}
-                onConfigChange={handleConfigChange}
-                disabled={false}
-              />
-            </div>
-
-            <LiveMetricsPanel metrics={ws.metrics} running={ws.running} concurrency={localConfig.maxConcurrency} />
+            <LiveMetricsPanel
+              metrics={ws.metrics}
+              running={ws.running}
+              concurrency={localConfig.maxConcurrency}
+              config={localConfig}
+              onConfigChange={handleConfigChange}
+            />
+            <MetricsPanel metrics={ws.metrics} running={ws.running} />
           </div>
-
-          <MetricsPanel metrics={ws.metrics} running={ws.running} />
 
           <BenchmarkTable />
 
