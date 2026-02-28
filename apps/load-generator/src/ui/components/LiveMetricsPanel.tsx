@@ -8,15 +8,10 @@ interface Props {
 }
 
 function sloClass(metric: 'ttft' | 'tpot', valueMs: number): string {
-  if (metric === 'ttft') {
-    if (valueMs < 600) return 'slo-green';
-    if (valueMs < 800) return 'slo-yellow';
-    return 'slo-red';
-  }
-  // tpot
-  if (valueMs < 60) return 'slo-green';
-  if (valueMs < 80) return 'slo-yellow';
-  return 'slo-red';
+  const slo = metric === 'ttft' ? 600 : 60;
+  if (valueMs >= slo) return 'slo-red';
+  if (valueMs >= slo * 0.9) return 'slo-yellow';
+  return '';
 }
 
 function fmtMs(ms: number): string {
@@ -39,7 +34,8 @@ interface MetricRowProps {
 }
 
 function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMetric }: MetricRowProps) {
-  const p95Class = sloMetric ? sloClass(sloMetric, liveP95) : '';
+  const liveP95Class = sloMetric ? sloClass(sloMetric, liveP95) : '';
+  const rrP95Class = sloMetric ? sloClass(sloMetric, rrP95) : '';
   return (
     <div className="live-metric-row">
       <div className="live-metric-label">{label}</div>
@@ -52,11 +48,11 @@ function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMet
         <span className="live-metric-unit">{unit}</span>
       </div>
       <div className="live-metric-cell">
-        <span className={`live-metric-value ${p95Class}`}>{format(liveP95)}</span>
+        <span className={`live-metric-value ${liveP95Class}`}>{format(liveP95)}</span>
         <span className="live-metric-unit">{unit}</span>
       </div>
       <div className="live-metric-cell live-metric-baseline">
-        <span className="benchmark-value">{format(rrP95)}</span>
+        <span className={`benchmark-value ${rrP95Class}`}>{format(rrP95)}</span>
         <span className="live-metric-unit">{unit}</span>
       </div>
     </div>
@@ -70,6 +66,7 @@ export function LiveMetricsPanel({ metrics, running, concurrency }: Props) {
   return (
     <div className="insight-panel">
       <h2>Live vs Round-Robin Benchmark</h2>
+      <div className="slo-subtitle">SLO: TTFT p95 &lt; 600ms &middot; TPOT p95 &lt; 60ms</div>
 
       {!running ? (
         <div className="collecting-data">Start the workload to see live metrics</div>

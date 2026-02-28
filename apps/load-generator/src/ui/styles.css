@@ -799,6 +799,13 @@ input[type="range"]:disabled {
 .slo-yellow { color: var(--accent-yellow); }
 .slo-red { color: var(--accent-red); }
 
+.slo-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: -4px;
+  margin-bottom: 8px;
+}
+
 /* Live Metrics Panel */
 .live-metrics-table {
   display: flex;

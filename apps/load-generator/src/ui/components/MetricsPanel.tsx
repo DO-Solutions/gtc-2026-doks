@@ -82,7 +82,7 @@ export function MetricsPanel({ metrics, running }: Props) {
         <div className="metric-card-compact">
           <div className="metric-label">TOPS <InfoIcon id="tops" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
           <div className={`metric-value ${noData ? 'muted' : ''}`}>
-            {noData ? '\u2014' : m.tops.toFixed(1)}
+            {noData ? '\u2014' : m.tops.toFixed(0)}
           </div>
         </div>
       </div>
