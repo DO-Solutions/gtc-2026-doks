@@ -108,34 +108,45 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 0.6 }] },
           "unit": "s"
         },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "p95" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } },
+              { "id": "custom.thresholdsStyle", "value": { "mode": "line+area" } }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "p50" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
+            "matcher": { "id": "byName", "options": "Inflight" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "light-blue", "mode": "fixed" } },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "Inflight Requests" },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "unit", "value": "short" }
+            ]
           }
         ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 3 },
       "id": 1,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "Time to First Token (TTFT)",
+      "title": "TTFT p95 (SLO: 600ms)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
-          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
+          "legendFormat": "p95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_time_to_first_token_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
-          "legendFormat": "p95",
+          "expr": "sum(dynamo_frontend_inflight_requests{namespace=\"dynamo-workload\"})",
+          "legendFormat": "Inflight",
           "refId": "B"
         }
       ]
@@ -145,34 +156,45 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 0.06 }] },
           "unit": "s"
         },
         "overrides": [
           {
             "matcher": { "id": "byName", "options": "p95" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } },
+              { "id": "custom.thresholdsStyle", "value": { "mode": "line+area" } }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "p50" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
+            "matcher": { "id": "byName", "options": "Inflight" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "light-blue", "mode": "fixed" } },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "Inflight Requests" },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "unit", "value": "short" }
+            ]
           }
         ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 3 },
       "id": 2,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "Inter-Token Latency (ITL)",
+      "title": "TPOT p95 (SLO: 60ms)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
-          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
+          "legendFormat": "p95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(dynamo_frontend_inter_token_latency_seconds_bucket{namespace=\"dynamo-workload\"}[1m])) by (le))",
-          "legendFormat": "p95",
+          "expr": "sum(dynamo_frontend_inflight_requests{namespace=\"dynamo-workload\"})",
+          "legendFormat": "Inflight",
           "refId": "B"
         }
       ]
