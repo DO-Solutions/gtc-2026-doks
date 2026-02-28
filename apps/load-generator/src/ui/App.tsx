@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMetrics } from './hooks/useMetrics';
-import { useTurnMetrics } from './hooks/useTurnMetrics';
 import { useHashRouter } from './hooks/useHashRouter';
 import { fetchStatus, startWorkload, stopWorkload, updateConfig } from './api';
 import { DemoControls } from './components/DemoControls';
 
 import { MetricsPanel } from './components/MetricsPanel';
-import { KVCacheInsight } from './components/KVCacheInsight';
+import { LiveMetricsPanel } from './components/LiveMetricsPanel';
+import { BenchmarkTable } from './components/BenchmarkTable';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
 import { ConversationList } from './components/ConversationList';
 import { ConversationDetail } from './components/ConversationDetail';
@@ -15,12 +15,11 @@ import type { WorkloadConfig } from './types';
 const DEFAULT_CONFIG: WorkloadConfig = {
   totalRPS: 10,
   mix: { a: 1.0 },
-  maxConcurrency: 40,
+  maxConcurrency: 60,
 };
 
 export function App() {
   const ws = useMetrics();
-  const turnMetrics = useTurnMetrics(ws.lastRequest, ws.lastRequestId, ws.running);
   const { route, navigate } = useHashRouter();
   const [localConfig, setLocalConfig] = useState<WorkloadConfig>(DEFAULT_CONFIG);
   const [uptimeMs, setUptimeMs] = useState(0);
@@ -96,7 +95,8 @@ export function App() {
     <>
       <header className="header">
         <div className="header-left">
-          <h1>KV Cache-Aware Routing Demo</h1>
+          <h1>Serve More Users on the Same GPUs with KV-Aware Routing</h1>
+          <div className="header-subtitle">Powered by NVIDIA Dynamo and DigitalOcean Kubernetes Service</div>
           <nav className="header-nav">
             <a
               href="#/"
@@ -106,9 +106,27 @@ export function App() {
             </a>
             <a
               href="#/conversations"
-              className={`nav-link ${route.page !== 'dashboard' ? 'nav-link-active' : ''}`}
+              className={`nav-link ${route.page === 'conversations' || route.page === 'conversation-detail' ? 'nav-link-active' : ''}`}
             >
               Conversations
+            </a>
+            <a
+              href="#/demo-arch"
+              className={`nav-link ${route.page === 'demo-arch' ? 'nav-link-active' : ''}`}
+            >
+              Demo Architecture
+            </a>
+            <a
+              href="#/routing-arch"
+              className={`nav-link ${route.page === 'routing-arch' ? 'nav-link-active' : ''}`}
+            >
+              KV Routing
+            </a>
+            <a
+              href="#/dynamo-features"
+              className={`nav-link ${route.page === 'dynamo-features' ? 'nav-link-active' : ''}`}
+            >
+              Dynamo Features
             </a>
           </nav>
         </div>
@@ -171,10 +189,12 @@ export function App() {
               />
             </div>
 
-            <KVCacheInsight turnMetrics={turnMetrics} running={ws.running} concurrency={localConfig.maxConcurrency} />
+            <LiveMetricsPanel metrics={ws.metrics} running={ws.running} concurrency={localConfig.maxConcurrency} />
           </div>
 
           <MetricsPanel metrics={ws.metrics} running={ws.running} />
+
+          <BenchmarkTable />
 
           <InfrastructurePanel infra={ws.infrastructure} />
         </>
@@ -186,6 +206,24 @@ export function App() {
 
       {route.page === 'conversation-detail' && (
         <ConversationDetail conversationId={route.conversationId} navigate={navigate} />
+      )}
+
+      {route.page === 'demo-arch' && (
+        <div className="infographic-page">
+          <img src="/content/do-demo-arch.png" alt="Demo Architecture" className="infographic-img" />
+        </div>
+      )}
+
+      {route.page === 'routing-arch' && (
+        <div className="infographic-page">
+          <img src="/content/kv-cache-arch.png" alt="KV Cache-Aware Routing Architecture" className="infographic-img" />
+        </div>
+      )}
+
+      {route.page === 'dynamo-features' && (
+        <div className="infographic-page">
+          <img src="/content/dynamo-features.png" alt="Dynamo Features" className="infographic-img" />
+        </div>
       )}
     </>
   );

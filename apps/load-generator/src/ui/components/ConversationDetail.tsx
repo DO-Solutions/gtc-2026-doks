@@ -92,7 +92,7 @@ export function ConversationDetail({ conversationId, navigate }: Props) {
               </div>
               <div className="turn-metric">
                 <span className="turn-metric-label">Latency</span>
-                <span className="turn-metric-value">{turn.metrics.latencyMs.toFixed(0)}ms</span>
+                <span className="turn-metric-value">{(turn.metrics.latencyMs / 1000).toFixed(1)}s</span>
               </div>
             </div>
             <div className="chat-message chat-message-user">

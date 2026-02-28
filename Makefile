@@ -107,7 +107,9 @@ setup-model: check-env ## Full model setup (Spaces + NFS)
 # --- Container Images (TODO) ---
 
 build-loadgen: ## Build load generator image
+	cp -r content/ apps/load-generator/content/
 	docker build -t $(REGISTRY)/gtc-demo-loadgen:$(TAG) apps/load-generator
+	rm -rf apps/load-generator/content/
 
 build-all: build-loadgen ## Build all images
 

@@ -3,7 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 export type Route =
   | { page: 'dashboard' }
   | { page: 'conversations' }
-  | { page: 'conversation-detail'; conversationId: string };
+  | { page: 'conversation-detail'; conversationId: string }
+  | { page: 'demo-arch' }
+  | { page: 'routing-arch' }
+  | { page: 'dynamo-features' };
 
 function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
@@ -14,6 +17,9 @@ function parseHash(hash: string): Route {
   if (detailMatch) {
     return { page: 'conversation-detail', conversationId: decodeURIComponent(detailMatch[1]) };
   }
+  if (path === 'demo-arch') return { page: 'demo-arch' };
+  if (path === 'routing-arch') return { page: 'routing-arch' };
+  if (path === 'dynamo-features') return { page: 'dynamo-features' };
   return { page: 'dashboard' };
 }
 

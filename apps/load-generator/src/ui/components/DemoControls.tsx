@@ -43,8 +43,8 @@ export function DemoControls({ config, running, onConfigChange, disabled }: Prop
         </div>
         <input
           type="range"
-          min={20}
-          max={120}
+          min={60}
+          max={180}
           step={20}
           value={config.maxConcurrency}
           disabled={disabled}

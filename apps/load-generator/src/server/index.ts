@@ -202,6 +202,7 @@ app.get('/metrics', async (_req, res) => {
 // Static UI serving
 // ---------------------------------------------------------------------------
 
+app.use('/content', express.static(path.join(__dirname, '../content')));
 app.use(express.static(path.join(__dirname, '../ui')));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '../ui/index.html'));

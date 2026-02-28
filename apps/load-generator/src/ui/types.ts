@@ -15,6 +15,7 @@ export interface RequestMetrics {
   status: 'ok' | 'error';
   ttftMs: number;
   itlMs: number;
+  tpotMs: number;
   latencyMs: number;
   outputTokens: number;
   completedAt: number;
@@ -35,8 +36,10 @@ export interface AggregateMetrics {
   actualRPS: number;
   ttft: PercentileStats;
   itl: PercentileStats;
+  tpot: PercentileStats;
   latency: PercentileStats;
   outputTokens: PercentileStats;
+  tops: number;
 }
 
 export interface GpuMetrics {

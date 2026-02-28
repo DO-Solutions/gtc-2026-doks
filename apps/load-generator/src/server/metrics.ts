@@ -17,6 +17,7 @@ export class MetricsAggregator {
     this.prune();
     const ok = this.window.filter((m) => m.status === 'ok');
     const windowSec = this.windowMs / 1000;
+    const totalOutputTokens = ok.reduce((sum, m) => sum + m.outputTokens, 0);
 
     return {
       windowSec,
@@ -28,6 +29,7 @@ export class MetricsAggregator {
       tpot: percentiles(ok.map((m) => m.tpotMs)),
       latency: percentiles(ok.map((m) => m.latencyMs)),
       outputTokens: percentiles(ok.map((m) => m.outputTokens)),
+      tops: totalOutputTokens / windowSec,
     };
   }
 

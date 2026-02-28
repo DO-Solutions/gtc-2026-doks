@@ -91,6 +91,7 @@ export interface AggregateMetrics {
   tpot: PercentileStats;
   latency: PercentileStats;
   outputTokens: PercentileStats;
+  tops: number;
 }
 
 // ---------------------------------------------------------------------------
