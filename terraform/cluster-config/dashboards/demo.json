@@ -207,16 +207,90 @@
           "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
           "unit": "s"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p95" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p50" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
+          }
+        ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
-      "id": 3,
+      "id": 9,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "Engine Queue Wait Time",
+      "title": "TTFT",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(trtllm_request_queue_time_seconds_sum{namespace=\"dynamo-workload\"}[1m])) / sum(rate(trtllm_request_queue_time_seconds_count{namespace=\"dynamo-workload\"}[1m]))",
+          "expr": "loadgen_ttft_all_seconds{quantile=\"0.5\"}",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "loadgen_ttft_all_seconds{quantile=\"0.95\"}",
+          "legendFormat": "p95",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p95" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p50" },
+            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "id": 10,
+      "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "TPOT",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "loadgen_tpot_all_seconds{quantile=\"0.5\"}",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "loadgen_tpot_all_seconds{quantile=\"0.95\"}",
+          "legendFormat": "p95",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "id": 7,
+      "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Latency",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(dynamo_frontend_request_duration_seconds_sum{namespace=\"dynamo-workload\"}[1m])) / sum(rate(dynamo_frontend_request_duration_seconds_count{namespace=\"dynamo-workload\"}[1m]))",
           "legendFormat": "avg",
           "refId": "A"
         }
@@ -239,7 +313,7 @@
           }
         ]
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
       "id": 4,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "title": "KV Cache",
@@ -253,6 +327,14 @@
       ]
     },
     {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 11,
+      "panels": [],
+      "title": "Per Worker Metrics",
+      "type": "row"
+    },
+    {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
         "defaults": {
@@ -263,7 +345,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
       "id": 5,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "title": "Inflight Requests",
@@ -288,10 +370,10 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "id": 6,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "GPU Utilization per Worker",
+      "title": "GPU Utilization",
       "type": "timeseries",
       "targets": [
         {
@@ -306,58 +388,21 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
+          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
           "unit": "s"
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 27 },
-      "id": 7,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "id": 3,
       "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "End-to-End Request Duration",
+      "title": "Engine Queue Wait Time",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(dynamo_frontend_request_duration_seconds_sum{namespace=\"dynamo-workload\"}[1m])) / sum(rate(dynamo_frontend_request_duration_seconds_count{namespace=\"dynamo-workload\"}[1m]))",
-          "legendFormat": "avg",
+          "expr": "rate(trtllm_request_queue_time_seconds_sum{namespace=\"dynamo-workload\"}[1m]) / rate(trtllm_request_queue_time_seconds_count{namespace=\"dynamo-workload\"}[1m])",
+          "legendFormat": "{{pod}}",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisBorderShow": false, "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "pointSize": 5, "showPoints": "never", "spanNulls": false, "stacking": { "mode": "none" } },
-          "unit": "s"
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "p95" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#FF9830", "mode": "fixed" } } ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "p50" },
-            "properties": [ { "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } } ]
-          }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 35 },
-      "id": 8,
-      "options": { "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "title": "TTFT: Client-Side",
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "loadgen_ttft_all_seconds{quantile=\"0.5\"}",
-          "legendFormat": "p50",
-          "refId": "A"
-        },
-        {
-          "expr": "loadgen_ttft_all_seconds{quantile=\"0.95\"}",
-          "legendFormat": "p95",
-          "refId": "B"
         }
       ]
     }
