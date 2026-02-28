@@ -1,5 +1,137 @@
+# Baseline Benchmark: KV Cache Routing vs Round-Robin (Averaged)
+
+**Generated:** 2026-02-28 00:03:13 UTC
+
+**Averaged across 6 sweeps** for statistical confidence.
+
+Source sweeps:
+- `benchmark-reference-20260226-214226.json`
+- `benchmark-reference-20260227-011550.json`
+- `benchmark-reference-20260227-031723.json`
+- `benchmark-reference-20260227-225527.json`
+- `benchmark-reference-20260227-225529.json`
+- `benchmark-reference-20260227-225531.json`
+
+## Test Methodology
+
+- **Routing modes:** Round-robin (baseline) vs KV cache-aware
+- **Concurrency levels:** 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180
+- **Target RPS:** 10.0
+- **Warmup:** 60s per level (Summary window flush)
+- **Measurement:** 300s per level (3 snapshots @ 100s, averaged)
+- **Workload:** Multi-turn chat (3-5 turns per conversation)
+- **Sweeps:** 6 independent runs, results averaged
+- **Metric source:** `loadgen_ttft_all_seconds` Prometheus Summary (60s window, client-side TTFT)
+
+## Deployment Details
+
+| Parameter | Value |
+|:----------|:------|
+| Model | Llama 3.1 70B Instruct FP8 |
+| GPU | 3x H200 (3 nodes) |
+| Workers | 3x TP=1 |
+| Backend | TensorRT-LLM via Dynamo |
+| Frontend | Dynamo Frontend (Rust) |
+| Max batch size | 64 |
+| Free GPU memory fraction | 0.90 |
+| KV cache dtype | FP8 |
+| Chunked prefill | Enabled |
+
+## Results
+
+| Concurrency | RR TTFT p50 | KV TTFT p50 | p50 Improvement | RR TTFT p95 | KV TTFT p95 | p95 Improvement | RR Hit Rate | KV Hit Rate |
+|:-----------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|:---------------:|:-----------:|:-----------:|
+| 40 | 266ms | 247ms | 7.1% | 660ms | 446ms | 32.4% | 99.7% | 99.2% |
+| 50 | 256ms | 244ms | 4.9% | 646ms | 446ms | 30.9% | 94.2% | 95.7% |
+| 60 | 274ms | 249ms | 9.3% | 655ms | 446ms | 32.0% | 90.9% | 91.6% |
+| 70 | 292ms | 260ms | 10.9% | 622ms | 494ms | 20.5% | 90.1% | 96.2% |
+| 80 | 306ms | 267ms | 12.8% | 637ms | 508ms | 20.2% | 85.3% | 95.7% |
+| 90 | 320ms | 289ms | 9.7% | 634ms | 501ms | 20.9% | 87.9% | 95.2% |
+| 100 | 342ms | 329ms | 3.9% | 652ms | 547ms | 16.2% | 88.5% | 96.1% |
+| 110 | 354ms | 355ms | -0.2% | 642ms | 515ms | 19.7% | 88.3% | 96.3% |
+| 120 | 375ms | 382ms | -2.0% | 643ms | 530ms | 17.6% | 87.2% | 95.9% |
+| 130 | 387ms | 385ms | 0.4% | 557ms | 521ms | 6.4% | 84.0% | 88.9% |
+| 140 | 398ms | 415ms | -4.1% | 643ms | 650ms | -1.1% | 83.9% | 91.2% |
+| 150 | 397ms | 423ms | -6.6% | 638ms | 690ms | -8.0% | 85.0% | 93.7% |
+| 160 | 422ms | 424ms | -0.5% | 722ms | 704ms | 2.5% | 90.1% | 95.3% |
+| 170 | 416ms | 430ms | -3.3% | 708ms | 1256ms | -77.4% | 85.4% | 94.9% |
+| 180 | 413ms | 472ms | -14.1% | 732ms | 3143ms | -329.6% | 88.9% | 94.0% |
+
+### Throughput (Output Tokens/s)
+
+| Concurrency | RR TOPS | KV TOPS | Improvement |
+|:-----------:|:-------:|:-------:|:-----------:|
+| 40 | 1587.8 | 1616.8 | 1.8% |
+| 50 | 1894.6 | 1976.1 | 4.3% |
+| 60 | 2146.9 | 2262.8 | 5.4% |
+| 70 | 2361.7 | 2513.6 | 6.4% |
+| 80 | 2543.2 | 2742.3 | 7.8% |
+| 90 | 2508.0 | 2836.6 | 13.1% |
+| 100 | 2547.5 | 2780.1 | 9.1% |
+| 110 | 2620.6 | 2732.2 | 4.3% |
+| 120 | 2642.6 | 2805.7 | 6.2% |
+| 130 | 2784.4 | 2943.4 | 5.7% |
+| 140 | 2816.8 | 3167.8 | 12.5% |
+| 150 | 2966.5 | 3341.1 | 12.6% |
+| 160 | 3126.8 | 3471.8 | 11.0% |
+| 170 | 3207.9 | 3656.5 | 14.0% |
+| 180 | 3434.0 | 3907.7 | 13.8% |
+
+### TPOT -- Time Per Output Token (ITL)
+
+| Concurrency | RR TPOT p50 | KV TPOT p50 | RR TPOT p95 | KV TPOT p95 |
+|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
+| 40 | 25ms | 25ms | 28ms | 26ms |
+| 50 | 26ms | 25ms | 28ms | 26ms |
+| 60 | 28ms | 26ms | 30ms | 27ms |
+| 70 | 30ms | 27ms | 31ms | 28ms |
+| 80 | 31ms | 28ms | 33ms | 33ms |
+| 90 | 31ms | 33ms | 47ms | 42ms |
+| 100 | 38ms | 36ms | 48ms | 43ms |
+| 110 | 45ms | 40ms | 50ms | 45ms |
+| 120 | 45ms | 43ms | 50ms | 46ms |
+| 130 | 46ms | 44ms | 50ms | 46ms |
+| 140 | 49ms | 44ms | 52ms | 46ms |
+| 150 | 50ms | 45ms | 52ms | 46ms |
+| 160 | 51ms | 46ms | 54ms | 48ms |
+| 170 | 53ms | 46ms | 55ms | 48ms |
+| 180 | 52ms | 45ms | 54ms | 48ms |
+
+### End-to-End Latency
+
+| Concurrency | RR Latency p50 | KV Latency p50 | RR Latency p95 | KV Latency p95 |
+|:-----------:|:--------------:|:--------------:|:--------------:|:--------------:|
+| 40 | 21968ms | 21439ms | 28173ms | 26666ms |
+| 50 | 22865ms | 22492ms | 28394ms | 26604ms |
+| 60 | 24636ms | 24326ms | 30114ms | 27674ms |
+| 70 | 26598ms | 25168ms | 32032ms | 29003ms |
+| 80 | 29269ms | 26575ms | 33357ms | 32526ms |
+| 90 | 30511ms | 30040ms | 48130ms | 41123ms |
+| 100 | 32060ms | 31812ms | 48957ms | 43614ms |
+| 110 | 34578ms | 35614ms | 50520ms | 45466ms |
+| 120 | 41154ms | 38095ms | 50363ms | 47221ms |
+| 130 | 41965ms | 40142ms | 50325ms | 46959ms |
+| 140 | 45682ms | 38712ms | 52955ms | 46715ms |
+| 150 | 45330ms | 40235ms | 52942ms | 47202ms |
+| 160 | 45178ms | 40771ms | 55427ms | 48144ms |
+| 170 | 48366ms | 42294ms | 56119ms | 48821ms |
+| 180 | 46065ms | 41433ms | 54570ms | 48657ms |
+
+## Summary
+
+- **Average TTFT p50 improvement across all concurrency levels:** 1.9%
+- **Peak TTFT p50 improvement:** 12.8% at concurrency 80
+- **TTFT p50 improvement range:** -14.1% to 12.8%
+- **KV cache hit rate (KV mode):** 88.9% to 99.2%, average 94.7%
+- **KV cache hit rate (RR mode):** 83.9% to 99.7%, average 88.6%
+- **Peak throughput (KV):** 3907.7 tokens/s at concurrency 180
+- **Peak throughput (RR):** 3434.0 tokens/s at concurrency 180
+
+## Reference Data (JSON)
+
+```json
 {
-  "generated": "2026-02-27T22:55:56Z",
+  "generated": "2026-02-28T00:03:13Z",
   "type": "averaged_baseline",
   "num_sweeps": 6,
   "source_files": [
@@ -223,24 +355,24 @@
     {
       "concurrency": 130,
       "round_robin": {
-        "ttft_p50_ms": 715.2,
-        "ttft_p95_ms": 3935.6,
-        "kv_hit_rate_pct": 71.3,
-        "tops": 2599.6,
-        "tpot_p50_ms": 45.2,
-        "tpot_p95_ms": 49.1,
-        "latency_p50_ms": 37837.3,
-        "latency_p95_ms": 48284.9
+        "ttft_p50_ms": 386.7,
+        "ttft_p95_ms": 557.3,
+        "kv_hit_rate_pct": 84.0,
+        "tops": 2784.4,
+        "tpot_p50_ms": 45.5,
+        "tpot_p95_ms": 49.6,
+        "latency_p50_ms": 41965.0,
+        "latency_p95_ms": 50324.9
       },
       "kv_aware": {
-        "ttft_p50_ms": 11641.3,
-        "ttft_p95_ms": 19222.8,
-        "kv_hit_rate_pct": 89.6,
-        "tops": 3786.3,
-        "tpot_p50_ms": 42.4,
-        "tpot_p95_ms": 45.6,
-        "latency_p50_ms": 48901.7,
-        "latency_p95_ms": 61353.7
+        "ttft_p50_ms": 385.0,
+        "ttft_p95_ms": 521.4,
+        "kv_hit_rate_pct": 88.9,
+        "tops": 2943.4,
+        "tpot_p50_ms": 44.1,
+        "tpot_p95_ms": 46.1,
+        "latency_p50_ms": 40142.1,
+        "latency_p95_ms": 46958.7
       }
     },
     {
@@ -360,3 +492,4 @@
     }
   ]
 }
+```

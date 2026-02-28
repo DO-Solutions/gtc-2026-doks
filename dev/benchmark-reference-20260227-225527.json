@@ -6,24 +6,24 @@
     {
       "concurrency": 130,
       "round_robin": {
-        "ttft_p50_ms": 396.2,
-        "ttft_p95_ms": 633.8,
-        "kv_hit_rate_pct": 85.8,
-        "tops": 2826.218519,
-        "tpot_p50_ms": 45.8,
-        "tpot_p95_ms": 49.2,
-        "latency_p50_ms": 40394.6,
-        "latency_p95_ms": 49300.4
+        "ttft_p50_ms": 386.7,
+        "ttft_p95_ms": 557.3,
+        "kv_hit_rate_pct": 84.0,
+        "tops": 2784.377778,
+        "tpot_p50_ms": 45.5,
+        "tpot_p95_ms": 49.6,
+        "latency_p50_ms": 41965.0,
+        "latency_p95_ms": 50324.9
       },
       "kv_aware": {
-        "ttft_p50_ms": 4614.2,
-        "ttft_p95_ms": 10511.6,
-        "kv_hit_rate_pct": 91.1,
-        "tops": 3550.735427,
-        "tpot_p50_ms": 42.3,
-        "tpot_p95_ms": 44.4,
-        "latency_p50_ms": 41233.9,
-        "latency_p95_ms": 53361.6
+        "ttft_p50_ms": 385.0,
+        "ttft_p95_ms": 521.4,
+        "kv_hit_rate_pct": 88.9,
+        "tops": 2943.421589,
+        "tpot_p50_ms": 44.1,
+        "tpot_p95_ms": 46.1,
+        "latency_p50_ms": 40142.1,
+        "latency_p95_ms": 46958.7
       }
     },
     {
