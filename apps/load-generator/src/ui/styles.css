@@ -794,10 +794,10 @@ input[type="range"]:disabled {
   word-break: break-word;
 }
 
-/* SLO threshold colors */
-.slo-green { color: var(--accent-green); }
-.slo-yellow { color: var(--accent-yellow); }
-.slo-red { color: var(--accent-red); }
+/* SLO threshold colors — doubled specificity to override .live-metric-value */
+.slo-green.slo-green { color: var(--accent-green); }
+.slo-yellow.slo-yellow { color: var(--accent-yellow); }
+.slo-red.slo-red { color: var(--accent-red); }
 
 .slo-subtitle {
   font-size: 0.75rem;

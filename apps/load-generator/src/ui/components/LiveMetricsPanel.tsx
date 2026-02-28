@@ -35,7 +35,6 @@ interface MetricRowProps {
 
 function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMetric }: MetricRowProps) {
   const liveP95Class = sloMetric ? sloClass(sloMetric, liveP95) : '';
-  const rrP95Class = sloMetric ? sloClass(sloMetric, rrP95) : '';
   return (
     <div className="live-metric-row">
       <div className="live-metric-label">{label}</div>
@@ -52,7 +51,7 @@ function MetricRow({ label, liveP50, liveP95, rrP50, rrP95, format, unit, sloMet
         <span className="live-metric-unit">{unit}</span>
       </div>
       <div className="live-metric-cell live-metric-baseline">
-        <span className={`benchmark-value ${rrP95Class}`}>{format(rrP95)}</span>
+        <span className="benchmark-value">{format(rrP95)}</span>
         <span className="live-metric-unit">{unit}</span>
       </div>
     </div>

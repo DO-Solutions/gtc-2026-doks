@@ -19,15 +19,26 @@ export class MetricsAggregator {
     const windowSec = this.windowMs / 1000;
     const totalOutputTokens = ok.reduce((sum, m) => sum + m.outputTokens, 0);
 
+    const ttft = percentiles(ok.map((m) => m.ttftMs));
+    const latency = percentiles(ok.map((m) => m.latencyMs));
+    const avgOutputTokens = ok.length > 0 ? totalOutputTokens / ok.length : 1;
+
+    // TPOT: decode time / avg output tokens (matches benchmark methodology)
+    const tpot: PercentileStats = {
+      mean: avgOutputTokens > 0 ? (latency.mean - ttft.mean) / avgOutputTokens : 0,
+      p50: avgOutputTokens > 0 ? (latency.p50 - ttft.p50) / avgOutputTokens : 0,
+      p95: avgOutputTokens > 0 ? (latency.p95 - ttft.p95) / avgOutputTokens : 0,
+    };
+
     return {
       windowSec,
       requestCount: this.window.length,
       errorCount: this.window.length - ok.length,
       actualRPS: this.window.length / windowSec,
-      ttft: percentiles(ok.map((m) => m.ttftMs)),
+      ttft,
       itl: percentiles(ok.map((m) => m.itlMs)),
-      tpot: percentiles(ok.map((m) => m.tpotMs)),
-      latency: percentiles(ok.map((m) => m.latencyMs)),
+      tpot,
+      latency,
       outputTokens: percentiles(ok.map((m) => m.outputTokens)),
       tops: totalOutputTokens / windowSec,
     };
