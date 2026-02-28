@@ -808,7 +808,7 @@ input[type="range"]:disabled {
 
 .live-metric-row {
   display: grid;
-  grid-template-columns: 100px repeat(6, 1fr);
+  grid-template-columns: 100px repeat(4, 1fr);
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
@@ -857,36 +857,6 @@ input[type="range"]:disabled {
   opacity: 0.7;
 }
 
-.live-tops-row {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: var(--bg-card);
-  border-radius: var(--radius);
-}
-
-.live-tops-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.live-tops-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.live-tops-value {
-  font-size: 1.2rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
 
 /* Benchmark Table */
 .benchmark-table-section {

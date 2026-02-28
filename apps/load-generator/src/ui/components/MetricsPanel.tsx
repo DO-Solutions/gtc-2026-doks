@@ -10,18 +10,11 @@ const metricDescriptions: Record<string, string> = {
   rps: 'Requests per second — rate of completed requests',
   requests: 'Total number of completed requests',
   errors: 'Number of failed requests',
-  itl: 'Inter-Token Latency — median time between consecutive output tokens during streaming (p50)',
-  latency: 'End-to-end request latency from first token sent to last token received (p50)',
+  tops: 'Tokens per second — output token throughput',
 };
 
 function fmt(n: number, decimals = 0): string {
   return n.toFixed(decimals);
-}
-
-function itlClass(p95: number): string {
-  if (p95 < 50) return 'healthy';
-  if (p95 < 100) return 'warning';
-  return 'critical';
 }
 
 function errorClass(count: number, total: number): string {
@@ -67,7 +60,7 @@ export function MetricsPanel({ metrics, running }: Props) {
       <div className="metrics-row">
         <div className="metric-card-compact">
           <div className="metric-label">RPS <InfoIcon id="rps" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
-          <div className={`metric-value ${noData ? 'muted' : 'healthy'}`}>
+          <div className={`metric-value ${noData ? 'muted' : ''}`}>
             {noData ? '\u2014' : fmt(m.actualRPS, 1)}
           </div>
         </div>
@@ -87,16 +80,9 @@ export function MetricsPanel({ metrics, running }: Props) {
         </div>
 
         <div className="metric-card-compact">
-          <div className="metric-label">ITL (ms) <InfoIcon id="itl" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
-          <div className={`metric-value ${noData ? 'muted' : itlClass(m.itl.p95)}`}>
-            {noData ? '\u2014' : fmt(m.itl.p50, 1)}
-          </div>
-        </div>
-
-        <div className="metric-card-compact">
-          <div className="metric-label">Latency (s) <InfoIcon id="latency" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
+          <div className="metric-label">TOPS <InfoIcon id="tops" openPopover={openPopover} setOpenPopover={setOpenPopover} /></div>
           <div className={`metric-value ${noData ? 'muted' : ''}`}>
-            {noData ? '\u2014' : fmt(m.latency.p50 / 1000, 1)}
+            {noData ? '\u2014' : m.tops.toFixed(1)}
           </div>
         </div>
       </div>
