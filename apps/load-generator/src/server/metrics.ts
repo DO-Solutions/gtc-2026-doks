@@ -25,6 +25,7 @@ export class MetricsAggregator {
       actualRPS: this.window.length / windowSec,
       ttft: percentiles(ok.map((m) => m.ttftMs)),
       itl: percentiles(ok.map((m) => m.itlMs)),
+      tpot: percentiles(ok.map((m) => m.tpotMs)),
       latency: percentiles(ok.map((m) => m.latencyMs)),
       outputTokens: percentiles(ok.map((m) => m.outputTokens)),
     };

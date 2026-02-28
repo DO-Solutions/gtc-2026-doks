@@ -110,13 +110,16 @@ async function streamRequest(
 
     clearTimeout(timeout);
 
+    const latencyMs = endTime - startTime;
+
     return {
       metrics: {
         workload: req.workload,
         status: 'ok',
         ttftMs,
         itlMs,
-        latencyMs: endTime - startTime,
+        tpotMs: outputTokens > 1 ? (latencyMs - ttftMs) / (outputTokens - 1) : 0,
+        latencyMs,
         outputTokens,
         completedAt: Date.now(),
         itemId: req.itemId,
@@ -163,6 +166,7 @@ function errorMetrics(
     status: 'error',
     ttftMs: 0,
     itlMs: 0,
+    tpotMs: 0,
     latencyMs: performance.now() - startTime,
     outputTokens: 0,
     completedAt: Date.now(),

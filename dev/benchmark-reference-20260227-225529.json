@@ -10,20 +10,20 @@
         "ttft_p95_ms": 557.3,
         "kv_hit_rate_pct": 84.0,
         "tops": 2784.377778,
-        "tpot_p50_ms": 45.5,
-        "tpot_p95_ms": 49.6,
         "latency_p50_ms": 41965.0,
-        "latency_p95_ms": 50324.9
+        "latency_p95_ms": 50324.9,
+        "itl_p50_ms": 45.5,
+        "itl_p95_ms": 49.6
       },
       "kv_aware": {
         "ttft_p50_ms": 385.0,
         "ttft_p95_ms": 521.4,
         "kv_hit_rate_pct": 88.9,
         "tops": 2943.421589,
-        "tpot_p50_ms": 44.1,
-        "tpot_p95_ms": 46.1,
         "latency_p50_ms": 40142.1,
-        "latency_p95_ms": 46958.7
+        "latency_p95_ms": 46958.7,
+        "itl_p50_ms": 44.1,
+        "itl_p95_ms": 46.1
       }
     },
     {
@@ -33,20 +33,20 @@
         "ttft_p95_ms": 628.4,
         "kv_hit_rate_pct": 81.7,
         "tops": 2758.889254,
-        "tpot_p50_ms": 50.2,
-        "tpot_p95_ms": 54.5,
         "latency_p50_ms": 46458.2,
-        "latency_p95_ms": 55391.0
+        "latency_p95_ms": 55391.0,
+        "itl_p50_ms": 50.2,
+        "itl_p95_ms": 54.5
       },
       "kv_aware": {
         "ttft_p50_ms": 432.3,
         "ttft_p95_ms": 735.6,
         "kv_hit_rate_pct": 94.9,
         "tops": 3178.353754,
-        "tpot_p50_ms": 44.0,
-        "tpot_p95_ms": 46.3,
         "latency_p50_ms": 36076.7,
-        "latency_p95_ms": 46854.9
+        "latency_p95_ms": 46854.9,
+        "itl_p50_ms": 44.0,
+        "itl_p95_ms": 46.3
       }
     },
     {
@@ -56,20 +56,20 @@
         "ttft_p95_ms": 582.3,
         "kv_hit_rate_pct": 84.0,
         "tops": 2876.480496,
-        "tpot_p50_ms": 51.1,
-        "tpot_p95_ms": 53.6,
         "latency_p50_ms": 47066.4,
-        "latency_p95_ms": 54561.6
+        "latency_p95_ms": 54561.6,
+        "itl_p50_ms": 51.1,
+        "itl_p95_ms": 53.6
       },
       "kv_aware": {
         "ttft_p50_ms": 428.6,
         "ttft_p95_ms": 742.0,
         "kv_hit_rate_pct": 95.0,
         "tops": 3326.207407,
-        "tpot_p50_ms": 44.8,
-        "tpot_p95_ms": 46.4,
         "latency_p50_ms": 41094.4,
-        "latency_p95_ms": 47281.3
+        "latency_p95_ms": 47281.3,
+        "itl_p50_ms": 44.8,
+        "itl_p95_ms": 46.4
       }
     },
     {
@@ -79,20 +79,20 @@
         "ttft_p95_ms": 702.5,
         "kv_hit_rate_pct": 89.4,
         "tops": 3109.359811,
-        "tpot_p50_ms": 51.9,
-        "tpot_p95_ms": 55.1,
         "latency_p50_ms": 44261.9,
-        "latency_p95_ms": 56515.5
+        "latency_p95_ms": 56515.5,
+        "itl_p50_ms": 51.9,
+        "itl_p95_ms": 55.1
       },
       "kv_aware": {
         "ttft_p50_ms": 427.2,
         "ttft_p95_ms": 662.7,
         "kv_hit_rate_pct": 95.5,
         "tops": 3433.303362,
-        "tpot_p50_ms": 45.8,
-        "tpot_p95_ms": 47.9,
         "latency_p50_ms": 41627.9,
-        "latency_p95_ms": 48435.9
+        "latency_p95_ms": 48435.9,
+        "itl_p50_ms": 45.8,
+        "itl_p95_ms": 47.9
       }
     },
     {
@@ -102,20 +102,20 @@
         "ttft_p95_ms": 708.5,
         "kv_hit_rate_pct": 87.0,
         "tops": 3167.353172,
-        "tpot_p50_ms": 53.7,
-        "tpot_p95_ms": 57.1,
         "latency_p50_ms": 49036.8,
-        "latency_p95_ms": 58430.1
+        "latency_p95_ms": 58430.1,
+        "itl_p50_ms": 53.7,
+        "itl_p95_ms": 57.1
       },
       "kv_aware": {
         "ttft_p50_ms": 424.0,
         "ttft_p95_ms": 853.1,
         "kv_hit_rate_pct": 92.8,
         "tops": 3625.962963,
-        "tpot_p50_ms": 46.1,
-        "tpot_p95_ms": 47.5,
         "latency_p50_ms": 42449.0,
-        "latency_p95_ms": 48560.6
+        "latency_p95_ms": 48560.6,
+        "itl_p50_ms": 46.1,
+        "itl_p95_ms": 47.5
       }
     },
     {
@@ -125,20 +125,20 @@
         "ttft_p95_ms": 721.6,
         "kv_hit_rate_pct": 88.5,
         "tops": 3412.30845,
-        "tpot_p50_ms": 52.3,
-        "tpot_p95_ms": 54.0,
         "latency_p50_ms": 46045.1,
-        "latency_p95_ms": 55018.8
+        "latency_p95_ms": 55018.8,
+        "itl_p50_ms": 52.3,
+        "itl_p95_ms": 54.0
       },
       "kv_aware": {
         "ttft_p50_ms": 445.7,
         "ttft_p95_ms": 2909.5,
         "kv_hit_rate_pct": 92.3,
         "tops": 3935.611187,
-        "tpot_p50_ms": 45.3,
-        "tpot_p95_ms": 47.9,
         "latency_p50_ms": 41721.7,
-        "latency_p95_ms": 48897.0
+        "latency_p95_ms": 48897.0,
+        "itl_p50_ms": 45.3,
+        "itl_p95_ms": 47.9
       }
     }
   ]

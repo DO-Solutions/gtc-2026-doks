@@ -57,6 +57,8 @@ export interface RequestMetrics {
   ttftMs: number;
   /** Mean inter-token latency in ms */
   itlMs: number;
+  /** Time per output token in ms: (latency - TTFT) / (outputTokens - 1) */
+  tpotMs: number;
   /** Total request duration in ms */
   latencyMs: number;
   /** Number of generated tokens */
@@ -86,6 +88,7 @@ export interface AggregateMetrics {
   actualRPS: number;
   ttft: PercentileStats;
   itl: PercentileStats;
+  tpot: PercentileStats;
   latency: PercentileStats;
   outputTokens: PercentileStats;
 }

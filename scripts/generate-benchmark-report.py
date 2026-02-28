@@ -127,6 +127,8 @@ def build_json_single(
             "error_pct": d.get("error_pct"),
             "actual_rps": d.get("actual_rps"),
             "tops": d.get("tops"),
+            "itl_p50_ms": sec_to_ms(d.get("itl_p50_sec")),
+            "itl_p95_ms": sec_to_ms(d.get("itl_p95_sec")),
             "tpot_p50_ms": sec_to_ms(d.get("tpot_p50_sec")),
             "tpot_p95_ms": sec_to_ms(d.get("tpot_p95_sec")),
             "latency_p50_ms": sec_to_ms(d.get("latency_p50_sec")),
@@ -154,6 +156,8 @@ def build_json_dual(sorted_conc, levels, rps_val, now) -> dict:
             "ttft_p95_ms": sec_to_ms(rr.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((rr.get("kv_hit_rate", 0) or 0) * 100, 1),
             "tops": rr.get("tops"),
+            "itl_p50_ms": sec_to_ms(rr.get("itl_p50_sec")),
+            "itl_p95_ms": sec_to_ms(rr.get("itl_p95_sec")),
             "tpot_p50_ms": sec_to_ms(rr.get("tpot_p50_sec")),
             "tpot_p95_ms": sec_to_ms(rr.get("tpot_p95_sec")),
             "latency_p50_ms": sec_to_ms(rr.get("latency_p50_sec")),
@@ -164,6 +168,8 @@ def build_json_dual(sorted_conc, levels, rps_val, now) -> dict:
             "ttft_p95_ms": sec_to_ms(kv.get("ttft_p95_sec")),
             "kv_hit_rate_pct": round((kv.get("kv_hit_rate", 0) or 0) * 100, 1),
             "tops": kv.get("tops"),
+            "itl_p50_ms": sec_to_ms(kv.get("itl_p50_sec")),
+            "itl_p95_ms": sec_to_ms(kv.get("itl_p95_sec")),
             "tpot_p50_ms": sec_to_ms(kv.get("tpot_p50_sec")),
             "tpot_p95_ms": sec_to_ms(kv.get("tpot_p95_sec")),
             "latency_p50_ms": sec_to_ms(kv.get("latency_p50_sec")),
@@ -232,20 +238,36 @@ def build_single_mode_report(
     def d(conc):
         return levels[conc].get(mode, {})
 
+    # ITL table
+    has_itl = any(d(c).get("itl_p50_sec") is not None for c in sorted_conc)
+    if has_itl:
+        md.append("## ITL -- Inter-Token Latency")
+        md.append("")
+        md.append("| Concurrency | ITL p50 | ITL p95 | Error % |")
+        md.append("|:-----------:|:-------:|:-------:|:-------:|")
+        for conc in sorted_conc:
+            row = d(conc)
+            md.append(
+                f"| {conc} "
+                f"| {fmt_ms(sec_to_ms(row.get('itl_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(row.get('itl_p95_sec')))} "
+                f"| {fmt_pct(row.get('error_pct'))} |"
+            )
+        md.append("")
+
     # TPOT table
     has_tpot = any(d(c).get("tpot_p50_sec") is not None for c in sorted_conc)
     if has_tpot:
-        md.append("## TPOT -- Time Per Output Token (ITL)")
+        md.append("## TPOT -- Time Per Output Token")
         md.append("")
-        md.append("| Concurrency | TPOT p50 | TPOT p95 | Error % |")
-        md.append("|:-----------:|:--------:|:--------:|:-------:|")
+        md.append("| Concurrency | TPOT p50 | TPOT p95 |")
+        md.append("|:-----------:|:--------:|:--------:|")
         for conc in sorted_conc:
             row = d(conc)
             md.append(
                 f"| {conc} "
                 f"| {fmt_ms(sec_to_ms(row.get('tpot_p50_sec')))} "
-                f"| {fmt_ms(sec_to_ms(row.get('tpot_p95_sec')))} "
-                f"| {fmt_pct(row.get('error_pct'))} |"
+                f"| {fmt_ms(sec_to_ms(row.get('tpot_p95_sec')))} |"
             )
         md.append("")
 
@@ -433,6 +455,29 @@ def build_dual_mode_report(
             )
         md.append("")
 
+    # ITL table
+    has_itl = any(
+        levels[c].get(m, {}).get("itl_p50_sec") is not None
+        for c in sorted_conc
+        for m in ("round_robin", "kv")
+    )
+    if has_itl:
+        md.append("### ITL -- Inter-Token Latency")
+        md.append("")
+        md.append("| Concurrency | RR ITL p50 | KV ITL p50 | RR ITL p95 | KV ITL p95 |")
+        md.append("|:-----------:|:----------:|:----------:|:----------:|:----------:|")
+        for conc in sorted_conc:
+            rr = levels[conc].get("round_robin", {})
+            kv = levels[conc].get("kv", {})
+            md.append(
+                f"| {conc} "
+                f"| {fmt_ms(sec_to_ms(rr.get('itl_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('itl_p50_sec')))} "
+                f"| {fmt_ms(sec_to_ms(rr.get('itl_p95_sec')))} "
+                f"| {fmt_ms(sec_to_ms(kv.get('itl_p95_sec')))} |"
+            )
+        md.append("")
+
     # TPOT table
     has_tpot = any(
         levels[c].get(m, {}).get("tpot_p50_sec") is not None
@@ -440,7 +485,7 @@ def build_dual_mode_report(
         for m in ("round_robin", "kv")
     )
     if has_tpot:
-        md.append("### TPOT -- Time Per Output Token (ITL)")
+        md.append("### TPOT -- Time Per Output Token")
         md.append("")
         md.append("| Concurrency | RR TPOT p50 | KV TPOT p50 | RR TPOT p95 | KV TPOT p95 |")
         md.append("|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|")
@@ -573,6 +618,8 @@ def main():
             "error_pct": safe_float(row["error_pct"]),
             "actual_rps": safe_float(row["actual_rps"]),
             "tops": safe_float(row.get("tops")),
+            "itl_p50_sec": safe_float(row.get("itl_p50_sec")),
+            "itl_p95_sec": safe_float(row.get("itl_p95_sec")),
             "tpot_p50_sec": safe_float(row.get("tpot_p50_sec")),
             "tpot_p95_sec": safe_float(row.get("tpot_p95_sec")),
             "latency_p50_sec": safe_float(row.get("latency_p50_sec")),

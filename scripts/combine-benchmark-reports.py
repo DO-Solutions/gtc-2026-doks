@@ -63,6 +63,7 @@ def pct_improvement(rr, kv):
 
 METRICS = [
     "ttft_p50_ms", "ttft_p95_ms", "kv_hit_rate_pct", "tops",
+    "itl_p50_ms", "itl_p95_ms",
     "tpot_p50_ms", "tpot_p95_ms", "latency_p50_ms", "latency_p95_ms",
 ]
 
@@ -110,7 +111,13 @@ def main():
                 for ref in refs:
                     for level in ref["levels"]:
                         if level["concurrency"] == conc:
-                            values.append(level[mode].get(metric))
+                            v = level[mode].get(metric)
+                            # Backward compat: old JSONs have ITL data in tpot_* fields
+                            # (before the rename). If itl_* is missing, fall back to tpot_*.
+                            if v is None and metric.startswith("itl_"):
+                                fallback_key = metric.replace("itl_", "tpot_", 1)
+                                v = level[mode].get(fallback_key)
+                            values.append(v)
                             break
                 averaged[conc][mode][metric] = round(avg(values), 1) if avg(values) is not None else None
 
@@ -230,22 +237,51 @@ def main():
         )
     md.append("")
 
+    # ITL
+    has_itl = any(
+        averaged[c][m].get("itl_p50_ms") is not None
+        for c in concurrencies
+        for m in ("round_robin", "kv_aware")
+    )
+    if has_itl:
+        md.append("### ITL -- Inter-Token Latency")
+        md.append("")
+        md.append("| Concurrency | RR ITL p50 | KV ITL p50 | RR ITL p95 | KV ITL p95 |")
+        md.append("|:-----------:|:----------:|:----------:|:----------:|:----------:|")
+        for conc in concurrencies:
+            rr = averaged[conc]["round_robin"]
+            kv = averaged[conc]["kv_aware"]
+            md.append(
+                f"| {conc} "
+                f"| {fmt_ms(rr['itl_p50_ms'])} "
+                f"| {fmt_ms(kv['itl_p50_ms'])} "
+                f"| {fmt_ms(rr['itl_p95_ms'])} "
+                f"| {fmt_ms(kv['itl_p95_ms'])} |"
+            )
+        md.append("")
+
     # TPOT
-    md.append("### TPOT -- Time Per Output Token (ITL)")
-    md.append("")
-    md.append("| Concurrency | RR TPOT p50 | KV TPOT p50 | RR TPOT p95 | KV TPOT p95 |")
-    md.append("|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|")
-    for conc in concurrencies:
-        rr = averaged[conc]["round_robin"]
-        kv = averaged[conc]["kv_aware"]
-        md.append(
-            f"| {conc} "
-            f"| {fmt_ms(rr['tpot_p50_ms'])} "
-            f"| {fmt_ms(kv['tpot_p50_ms'])} "
-            f"| {fmt_ms(rr['tpot_p95_ms'])} "
-            f"| {fmt_ms(kv['tpot_p95_ms'])} |"
-        )
-    md.append("")
+    has_tpot = any(
+        averaged[c][m].get("tpot_p50_ms") is not None
+        for c in concurrencies
+        for m in ("round_robin", "kv_aware")
+    )
+    if has_tpot:
+        md.append("### TPOT -- Time Per Output Token")
+        md.append("")
+        md.append("| Concurrency | RR TPOT p50 | KV TPOT p50 | RR TPOT p95 | KV TPOT p95 |")
+        md.append("|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|")
+        for conc in concurrencies:
+            rr = averaged[conc]["round_robin"]
+            kv = averaged[conc]["kv_aware"]
+            md.append(
+                f"| {conc} "
+                f"| {fmt_ms(rr['tpot_p50_ms'])} "
+                f"| {fmt_ms(kv['tpot_p50_ms'])} "
+                f"| {fmt_ms(rr['tpot_p95_ms'])} "
+                f"| {fmt_ms(kv['tpot_p95_ms'])} |"
+            )
+        md.append("")
 
     # End-to-End Latency
     md.append("### End-to-End Latency")

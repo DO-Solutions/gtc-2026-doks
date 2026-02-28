@@ -13,7 +13,7 @@
 
 ## What We're Building
 
-A booth demo for NVIDIA GTC showcasing **KV cache-aware routing** and **speculative decoding** on DigitalOcean GPU infrastructure. The demo runs four TP=2 replicas of Llama 3.1 70B Instruct FP8 on a single 8-GPU node, served through NVIDIA Dynamo with a TensorRT-LLM backend. KV-aware routing reduces TTFT on multi-turn conversations by directing follow-up requests to the replica already holding cached KV state. Speculative decoding (Phase 2+) reduces ITL by generating multiple tokens per forward pass. The system exposes a standard OpenAI-compatible API; all optimizations are infrastructure-side.
+A booth demo for NVIDIA GTC showcasing **KV cache-aware routing** on DigitalOcean GPU infrastructure. The demo runs four TP=2 replicas of Llama 3.1 70B Instruct FP8 on a single 8-GPU node, served through NVIDIA Dynamo with a TensorRT-LLM backend. KV-aware routing reduces TTFT on multi-turn conversations by directing follow-up requests to the replica already holding cached KV state. The system exposes a standard OpenAI-compatible API; all optimizations are infrastructure-side.
 
 The key message: DigitalOcean's GPU infrastructure, combined with NVIDIA's inference stack, delivers measurably lower latency through intelligent routing and engine-level optimization — two layers of improvement that work together transparently.
 
@@ -27,38 +27,11 @@ Standard multi-replica LLM deployments with round-robin load balancing treat eve
 
 **KV cache-aware routing** solves problem 1 at the **routing layer**. Dynamo's frontend tracks KV cache state across replicas via NATS and routes multi-turn conversations to the replica holding their cached context. On turn 2+, only the new user message requires prefill — TTFT drops dramatically.
 
-**Speculative decoding** solves problem 2 at the **engine layer**. A lightweight draft model (or EAGLE3 prediction heads) generates candidate tokens that the target model verifies in a single forward pass. Multiple tokens are produced per step, reducing ITL with no quality degradation.
-
-These optimizations are complementary — KV-aware routing targets prefill (TTFT), speculative decoding targets decode (ITL). Neither requires changes to the application, model, or API contract.
-
 ## Architecture Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                 8x H100/H200 GPU Node                        │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │              Dynamo Frontend (Rust)                     │  │
-│  │  KV-aware router: routes multi-turn conversations      │  │
-│  │  to the replica holding their cached KV state          │  │
-│  └─────┬──────────┬──────────┬──────────┬─────────────────┘  │
-│        │          │          │          │                     │
-│        ▼          ▼          ▼          ▼                     │
-│  ┌──────────┐┌──────────┐┌──────────┐┌──────────┐           │
-│  │Replica A ││Replica B ││Replica C ││Replica D │           │
-│  │TP=2      ││TP=2      ││TP=2      ││TP=2      │           │
-│  │GPUs 0-1  ││GPUs 2-3  ││GPUs 4-5  ││GPUs 6-7  │           │
-│  │Llama 70B ││Llama 70B ││Llama 70B ││Llama 70B │           │
-│  │FP8       ││FP8       ││FP8       ││FP8       │           │
-│  └──────────┘└──────────┘└──────────┘└──────────┘           │
-│                                                              │
-│  Infrastructure: etcd, NATS, Prometheus, Grafana             │
-└──────────────────────────────────────────────────────────────┘
-```
+**NVIDIA stack:** Dynamo (inference platform with KV-aware routing), TensorRT-LLM (inference backend), Grove (PodClique orchestration), KAI Scheduler (GPU-aware gang scheduling). Supporting infra: etcd, NATS.
 
-**NVIDIA stack:** Dynamo (inference platform with KV-aware routing), TensorRT-LLM (inference backend with speculative decoding), Grove (PodClique orchestration), KAI Scheduler (GPU-aware gang scheduling). Supporting infra: etcd, NATS.
-
-**Config:** 4 aggregated TP=2 replicas (all 8 GPUs). Each replica handles its own prefill and decode — no inter-pod KV transfers.
+**Config:**  3x H200 GPU Nodes. Each replica handles its own prefill and decode — no inter-pod KV transfers.
 
 ## The Demo Experience
 
@@ -79,10 +52,6 @@ The demo has two displays running at the booth:
 1. **Baseline** — round-robin routing under multi-turn chat load, TTFT consistent across all turns, KV cache hit rate near zero
 2. **KV-Aware Routing** — switch to KV-aware routing, TTFT drops on turn 2+, KV cache hit rate climbs as conversations progress
 
-### Auto Mode
-
-For unattended periods, a scenario controller cycles load intensity through four phases: ramp up, steady state, high load, cooldown. No scaling events — replicas are fixed at 4.
-
 ## Technical Stack & Conventions
 
 ### Infrastructure
@@ -93,8 +62,6 @@ For unattended periods, a scenario controller cycles load intensity through four
 - **Container images** published to `registry.digitalocean.com/do-solutions-sfo3/` with `gtc-demo-` prefix, tagged with `YYYYMMDD-<short SHA>`. DOKS has `registry_integration = true` for automatic pull access.
 
 ### Critical Rules (Always Follow)
-
-**Phase 1 has fixed replicas.** No KEDA scaling. 4 worker replicas at TP=2 (all 8 GPUs used). Replica count is set in the DGD CR.
 
 **DOKS GPU prerequisites:** RuntimeClass `nvidia` must exist before GPU pods (KAI injects it). All GPU pods tolerate `nvidia.com/gpu:NoSchedule`. KAI queue label: `kai.scheduler/queue: default-queue`.
 
@@ -110,21 +77,13 @@ For unattended periods, a scenario controller cycles load intensity through four
 
 | | Dev | Prod |
 |--|-----|------|
-| GPU | 4x `gpu-h200x1-141gb` | 1x `gpu-h200x8-1128gb-contracted` |
+| GPU | 3x `gpu-h200x1-141gb` |3x `gpu-h200x1-141gb` |
 | Region | `nyc2` | `atl1` |
 | Model | Llama 3.1 70B Instruct FP8 | Llama 3.1 70B Instruct FP8 |
-| Replicas | 4x TP=1 (4 GPUs) | 4x TP=2 (8 GPUs) |
+| Replicas | 3x TP=1 (3 GPUs) | 3x TP=1 (3 GPUs) |
 | Hostname | `gtc-2026-dev.digitalocean.solutions` | `gtc-2026.digitalocean.solutions` |
 | Load Gen UI | `https://gtc-2026-dev.digitalocean.solutions` | `https://gtc-2026.digitalocean.solutions` |
 | Grafana | `https://gtc-2026-dev.digitalocean.solutions/grafana` | `https://gtc-2026.digitalocean.solutions/grafana` |
-
-### Development Phases (High Level)
-
-| Phase | Focus | Risk |
-|-------|-------|------|
-| **1: KV-Aware Routing** | Aggregated TP=2 serving, KV-aware routing, multi-turn workload, baseline comparison | Low |
-| **2: Draft-Model Spec Decode** | Add Llama 8B as draft model for speculative decoding, show ITL improvement | Low-moderate |
-| **3: EAGLE3 Spec Decode** | Switch to Llama 3.3 70B + EAGLE3 heads, higher acceptance rates | Moderate-high (stretch) |
 
 ### Key File Locations
 

@@ -172,9 +172,9 @@ except Exception:
 }
 
 # ── Collect metrics (pipe-delimited) ──────────────────────────────────────────
-# Output: ttft_p50|ttft_p95|kv_hit_rate|error_pct|actual_rps|tops|tpot_p50|tpot_p95|latency_p50|latency_p95
+# Output: ttft_p50|ttft_p95|kv_hit_rate|error_pct|actual_rps|tops|itl_p50|itl_p95|tpot_p50|tpot_p95|latency_p50|latency_p95
 collect_metrics() {
-  local t50 t95 kh er ar tops tp50 tp95 lp50 lp95
+  local t50 t95 kh er ar tops ip50 ip95 tp50 tp95 lp50 lp95
 
   t50=$(prom_query 'loadgen_ttft_all_seconds{quantile="0.5"}')
   t95=$(prom_query 'loadgen_ttft_all_seconds{quantile="0.95"}')
@@ -186,18 +186,19 @@ collect_metrics() {
   # Output tokens per second
   tops=$(prom_query "sum(rate(dynamo_frontend_output_tokens_total{${COMPONENT_NS}}[1m])) or vector(0)")
 
-  # Error rate + TPOT + Latency from load generator /api/status
+  # Error rate + ITL + TPOT + Latency from load generator /api/status
   local status_json
   status_json=$(curl -sf --max-time 5 "http://localhost:${LOADGEN_PORT}/api/status" 2>/dev/null) || status_json='{}'
-  read -r er tp50 tp95 lp50 lp95 <<< "$(python3 -c "
+  read -r er ip50 ip95 tp50 tp95 lp50 lp95 <<< "$(python3 -c "
 import sys, json
 try:
     m = json.load(sys.stdin).get('metrics')
     if not m or m.get('requestCount', 0) == 0:
-        print('0.000000 NaN NaN NaN NaN')
+        print('0.000000 NaN NaN NaN NaN NaN NaN')
     else:
         er = 100.0 * m['errorCount'] / m['requestCount']
         itl = m.get('itl', {})
+        tpot = m.get('tpot', {})
         lat = m.get('latency', {})
         def ms_to_sec(v):
             try:
@@ -205,12 +206,12 @@ try:
                 return f'{f / 1000:.6f}' if f > 0 else 'NaN'
             except (TypeError, ValueError):
                 return 'NaN'
-        print(f'{er:.6f} {ms_to_sec(itl.get(\"p50\"))} {ms_to_sec(itl.get(\"p95\"))} {ms_to_sec(lat.get(\"p50\"))} {ms_to_sec(lat.get(\"p95\"))}')
+        print(f'{er:.6f} {ms_to_sec(itl.get(\"p50\"))} {ms_to_sec(itl.get(\"p95\"))} {ms_to_sec(tpot.get(\"p50\"))} {ms_to_sec(tpot.get(\"p95\"))} {ms_to_sec(lat.get(\"p50\"))} {ms_to_sec(lat.get(\"p95\"))}')
 except Exception:
-    print('NaN NaN NaN NaN NaN')
+    print('NaN NaN NaN NaN NaN NaN NaN')
 " <<< "$status_json")"
 
-  echo "${t50}|${t95}|${kh}|${er}|${ar}|${tops}|${tp50}|${tp95}|${lp50}|${lp95}"
+  echo "${t50}|${t95}|${kh}|${er}|${ar}|${tops}|${ip50}|${ip95}|${tp50}|${tp95}|${lp50}|${lp95}"
 }
 
 # ── Average snapshot lines ────────────────────────────────────────────────────
@@ -459,7 +460,7 @@ if $DRY_RUN; then
   echo "Estimated duration: ~${local_total} min"
   echo ""
   echo "Output: ${OUTPUT_DIR}/benchmark-sweep-YYYYMMDD-HHMMSS.tsv"
-  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps  tops  tpot_p50_sec  tpot_p95_sec  latency_p50_sec  latency_p95_sec  measure_start_utc  measure_end_utc"
+  echo "Columns: mode  concurrency  rps  ttft_p50_sec  ttft_p95_sec  kv_hit_rate  error_pct  actual_rps  tops  itl_p50_sec  itl_p95_sec  tpot_p50_sec  tpot_p95_sec  latency_p50_sec  latency_p95_sec  measure_start_utc  measure_end_utc"
   exit 0
 fi
 
@@ -558,7 +559,7 @@ info "  Load generator ready"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TSV_FILE="${OUTPUT_DIR}/benchmark-sweep-${TIMESTAMP}.tsv"
 mkdir -p "$OUTPUT_DIR"
-printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\ttops\ttpot_p50_sec\ttpot_p95_sec\tlatency_p50_sec\tlatency_p95_sec\tmeasure_start_utc\tmeasure_end_utc\n" \
+printf "mode\tconcurrency\trps\tttft_p50_sec\tttft_p95_sec\tkv_hit_rate\terror_pct\tactual_rps\ttops\titl_p50_sec\titl_p95_sec\ttpot_p50_sec\ttpot_p95_sec\tlatency_p50_sec\tlatency_p95_sec\tmeasure_start_utc\tmeasure_end_utc\n" \
   > "$TSV_FILE"
 info "Results → ${TSV_FILE}"
 
@@ -595,26 +596,27 @@ run_phase() {
       SNAP_DATA+="${line}"$'\n'
 
       # Print live snapshot values
-      IFS='|' read -r _t50 _t95 _kh _er _ar _tops _tp50 _tp95 _lp50 _lp95 <<< "$line"
-      info "    TTFT p50=$(fmt_sec "$_t50")  p95=$(fmt_sec "$_t95")  TPOT p50=$(fmt_sec "$_tp50")  Latency p50=$(fmt_sec "$_lp50")  KV hit=$(fmt_pct "$_kh")  Err=$(fmt_pct "$_er")"
+      IFS='|' read -r _t50 _t95 _kh _er _ar _tops _ip50 _ip95 _tp50 _tp95 _lp50 _lp95 <<< "$line"
+      info "    TTFT p50=$(fmt_sec "$_t50")  p95=$(fmt_sec "$_t95")  ITL p50=$(fmt_sec "$_ip50")  TPOT p50=$(fmt_sec "$_tp50")  Latency p50=$(fmt_sec "$_lp50")  KV hit=$(fmt_pct "$_kh")  Err=$(fmt_pct "$_er")"
     done
     measure_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # Average snapshots
     avg_line=$(echo "$SNAP_DATA" | average_snapshots)
-    IFS='|' read -r avg_t50 avg_t95 avg_kh avg_er avg_ar avg_tops avg_tp50 avg_tp95 avg_lp50 avg_lp95 <<< "$avg_line"
+    IFS='|' read -r avg_t50 avg_t95 avg_kh avg_er avg_ar avg_tops avg_ip50 avg_ip95 avg_tp50 avg_tp95 avg_lp50 avg_lp95 <<< "$avg_line"
 
     # Write TSV row
-    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
       "$mode" "$conc" "$RPS" \
       "$avg_t50" "$avg_t95" "$avg_kh" "$avg_er" "$avg_ar" "$avg_tops" \
-      "$avg_tp50" "$avg_tp95" "$avg_lp50" "$avg_lp95" \
+      "$avg_ip50" "$avg_ip95" "$avg_tp50" "$avg_tp95" "$avg_lp50" "$avg_lp95" \
       "$measure_start" "$measure_end" >> "$TSV_FILE"
 
     # Display level summary
     echo "│"
     echo "│  ${mode} @ concurrency=${conc} averaged results:"
     echo "│    TTFT    p50=$(fmt_sec "$avg_t50")  p95=$(fmt_sec "$avg_t95")"
+    echo "│    ITL     p50=$(fmt_sec "$avg_ip50")  p95=$(fmt_sec "$avg_ip95")"
     echo "│    TPOT    p50=$(fmt_sec "$avg_tp50")  p95=$(fmt_sec "$avg_tp95")"
     echo "│    Latency p50=$(fmt_sec "$avg_lp50")  p95=$(fmt_sec "$avg_lp95")"
     echo "│    KV hit  $(fmt_pct "$avg_kh")"

@@ -23,6 +23,15 @@ const itlSummary = new client.Summary({
   ageBuckets: 5,
 });
 
+const tpotSummary = new client.Summary({
+  name: 'loadgen_tpot_seconds',
+  help: 'Time per output token measured client-side: (latency - TTFT) / (outputTokens - 1)',
+  labelNames: ['turn_type'] as const,
+  percentiles: [0.5, 0.95],
+  maxAgeSeconds: 300,
+  ageBuckets: 5,
+});
+
 const ttftAllSummary = new client.Summary({
   name: 'loadgen_ttft_all_seconds',
   help: 'Time to first token for all requests (no turn-type split)',
@@ -51,5 +60,8 @@ export function recordPrometheusMetrics(m: RequestMetrics): void {
 
   ttftSummary.observe({ turn_type: turnType }, m.ttftMs / 1000);
   itlSummary.observe({ turn_type: turnType }, m.itlMs / 1000);
+  if (m.tpotMs > 0) {
+    tpotSummary.observe({ turn_type: turnType }, m.tpotMs / 1000);
+  }
   requestsCounter.inc({ turn_type: turnType, status: m.status });
 }
