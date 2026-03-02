@@ -409,6 +409,35 @@ resource "helm_release" "dynamo_platform" {
     value = "true"
   }
 
+  values = [yamlencode({
+    nats = {
+      podTemplate = {
+        merge = {
+          spec = {
+            tolerations = [{
+              key      = "nvidia.com/gpu"
+              operator = "Exists"
+              effect   = "NoSchedule"
+            }]
+            affinity = {
+              nodeAffinity = {
+                requiredDuringSchedulingIgnoredDuringExecution = {
+                  nodeSelectorTerms = [{
+                    matchExpressions = [{
+                      key      = "doks.digitalocean.com/gpu-brand"
+                      operator = "In"
+                      values   = ["nvidia"]
+                    }]
+                  }]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })]
+
   depends_on = [helm_release.dynamo_crds]
 }
 

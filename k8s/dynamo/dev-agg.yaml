@@ -21,6 +21,19 @@ spec:
         - name: model-nfs-pvc
           mountPoint: /models
       extraPodSpec:
+        tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: doks.digitalocean.com/gpu-brand
+                      operator: In
+                      values:
+                        - nvidia
         mainContainer:
           image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:0.9.0
           env:
