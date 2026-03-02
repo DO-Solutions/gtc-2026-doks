@@ -100,9 +100,8 @@ export interface AggregateMetrics {
 
 export interface GpuMetrics {
   index: number;
-  utilization: number | null;
-  memoryUsedMiB: number | null;
-  memoryFreeMiB: number | null;
+  hbmBandwidth: number | null;      // 0-100 (DCGM_FI_PROF_DRAM_ACTIVE × 100)
+  tensorCoreActivity: number | null; // 0-100 (DCGM_FI_PROF_PIPE_TENSOR_ACTIVE × 100)
 }
 
 export interface PodInfraMetrics {

@@ -10,18 +10,11 @@ function fmt(n: number, decimals = 1): string {
   return n.toFixed(decimals);
 }
 
-function gpuColorClass(util: number | null): string {
-  if (util === null) return 'gpu-none';
-  if (util < 30) return 'gpu-low';
-  if (util < 70) return 'gpu-mid';
+function gpuColorClass(hbmBw: number | null): string {
+  if (hbmBw === null) return 'gpu-none';
+  if (hbmBw < 20) return 'gpu-low';
+  if (hbmBw < 60) return 'gpu-mid';
   return 'gpu-high';
-}
-
-function gpuMemPercent(used: number | null, free: number | null): number | null {
-  if (used === null || free === null) return null;
-  const total = used + free;
-  if (total === 0) return null;
-  return (used / total) * 100;
 }
 
 function PodCard({ pod }: { pod: PodInfraMetrics }) {
@@ -31,20 +24,17 @@ function PodCard({ pod }: { pod: PodInfraMetrics }) {
         <span className="infra-pod-name">Worker {pod.shortName}</span>
       </div>
       <div className="infra-gpu-grid">
-        {pod.gpus.map((gpu) => {
-          const memPct = gpuMemPercent(gpu.memoryUsedMiB, gpu.memoryFreeMiB);
-          return (
-            <div key={gpu.index} className={`gpu-box ${gpuColorClass(gpu.utilization)}`}>
-              <div className="gpu-box-label">GPU {gpu.index}</div>
-              <div className="gpu-box-value">
-                {gpu.utilization !== null ? `${fmt(gpu.utilization, 0)}%` : '\u2014'}
-              </div>
-              {memPct !== null && (
-                <div className="gpu-box-mem">{fmt(memPct, 0)}% mem</div>
-              )}
+        {pod.gpus.map((gpu) => (
+          <div key={gpu.index} className={`gpu-box ${gpuColorClass(gpu.hbmBandwidth)}`}>
+            <div className="gpu-box-label">GPU {gpu.index}</div>
+            <div className="gpu-box-value">
+              {gpu.hbmBandwidth !== null ? `${fmt(gpu.hbmBandwidth, 0)}%` : '\u2014'}
             </div>
-          );
-        })}
+            {gpu.tensorCoreActivity !== null && (
+              <div className="gpu-box-secondary">{fmt(gpu.tensorCoreActivity, 0)}% TC</div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -53,7 +43,7 @@ function PodCard({ pod }: { pod: PodInfraMetrics }) {
 function InfraHeader({ infra, openPopover, setOpenPopover }: { infra: InfrastructureMetrics | null; openPopover: string | null; setOpenPopover: (v: string | null) => void }) {
   return (
     <div className="infra-header">
-      <h2><span className="section-title">Infrastructure <InfoIcon id="infra-header" description="Per-worker GPU metrics from DCGM. Util = GPU compute utilization %. Mem = GPU framebuffer memory used / total." openPopover={openPopover} setOpenPopover={setOpenPopover} /></span></h2>
+      <h2><span className="section-title">Infrastructure <InfoIcon id="infra-header" description="Per-worker GPU metrics from DCGM. HBM BW = High Bandwidth Memory utilization %. TC = Tensor Core activity %." openPopover={openPopover} setOpenPopover={setOpenPopover} /></span></h2>
       {infra && (
         <div className="infra-meta">
           <span className="infra-meta-item">

@@ -53,28 +53,23 @@ export class InfraCollector {
     let kvCacheHitRate: number | null = null;
     let queuedRequests: number | null = null;
 
-    // Per-GPU maps: keyed by "pod:gpuIndex"
-    const gpuUtilByPod = new Map<string, Map<number, number>>();
-    const gpuMemUsedByPod = new Map<string, Map<number, number>>();
-    const gpuMemFreeByPod = new Map<string, Map<number, number>>();
+    // Per-GPU maps: pod → gpu index → value
+    const hbmBandwidthByPod = new Map<string, Map<number, number>>();
+    const tensorCoreByPod = new Map<string, Map<number, number>>();
 
     try {
       const [
-        gpuUtilResult,
-        gpuMemUsedResult,
-        gpuMemFreeResult,
+        hbmBandwidthResult,
+        tensorCoreResult,
         cachedTokensResult,
         inputTokensResult,
         queuedResult,
       ] = await Promise.all([
         this.queryPrometheus(
-          'avg_over_time(DCGM_FI_DEV_GPU_UTIL{exported_namespace="dynamo-workload"}[1m])'
+          'DCGM_FI_PROF_DRAM_ACTIVE{exported_namespace="dynamo-workload"}'
         ),
         this.queryPrometheus(
-          'DCGM_FI_DEV_FB_USED{exported_namespace="dynamo-workload"}'
-        ),
-        this.queryPrometheus(
-          'DCGM_FI_DEV_FB_FREE{exported_namespace="dynamo-workload"}'
+          'DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{exported_namespace="dynamo-workload"}'
         ),
         this.queryPrometheus(
           'rate(dynamo_frontend_cached_tokens_sum[1m])'
@@ -89,10 +84,9 @@ export class InfraCollector {
 
       prometheusAvailable = true;
 
-      // GPU util: exported_pod + gpu → value
-      this.mapGpuMetric(gpuUtilResult, gpuUtilByPod);
-      this.mapGpuMetric(gpuMemUsedResult, gpuMemUsedByPod);
-      this.mapGpuMetric(gpuMemFreeResult, gpuMemFreeByPod);
+      // GPU metrics: exported_pod + gpu → value (DCGM returns 0.0-1.0 fractions)
+      this.mapGpuMetric(hbmBandwidthResult, hbmBandwidthByPod);
+      this.mapGpuMetric(tensorCoreResult, tensorCoreByPod);
 
       // Global KV cache hit rate: cached_tokens / input_tokens * 100
       const cachedRate = cachedTokensResult.length > 0 ? parseFloat(cachedTokensResult[0].value[1]) : 0;
@@ -114,19 +108,17 @@ export class InfraCollector {
       const shortName = podName.length > 8 ? `...${podName.slice(-5)}` : podName;
 
       // Build GPU list from DCGM exported_pod mapping
-      const utilMap = gpuUtilByPod.get(podName);
-      const usedMap = gpuMemUsedByPod.get(podName);
-      const freeMap = gpuMemFreeByPod.get(podName);
+      const hbmMap = hbmBandwidthByPod.get(podName);
+      const tcMap = tensorCoreByPod.get(podName);
       const gpuIndices = new Set<number>();
-      if (utilMap) for (const k of utilMap.keys()) gpuIndices.add(k);
-      if (usedMap) for (const k of usedMap.keys()) gpuIndices.add(k);
-      if (freeMap) for (const k of freeMap.keys()) gpuIndices.add(k);
+      if (hbmMap) for (const k of hbmMap.keys()) gpuIndices.add(k);
+      if (tcMap) for (const k of tcMap.keys()) gpuIndices.add(k);
 
+      // DCGM returns 0.0-1.0 fractions; multiply by 100 for percentage display
       const gpus: GpuMetrics[] = [...gpuIndices].sort((a, b) => a - b).map((gpuIdx) => ({
         index: gpuIdx,
-        utilization: utilMap?.get(gpuIdx) ?? null,
-        memoryUsedMiB: usedMap?.get(gpuIdx) ?? null,
-        memoryFreeMiB: freeMap?.get(gpuIdx) ?? null,
+        hbmBandwidth: hbmMap?.get(gpuIdx) != null ? hbmMap.get(gpuIdx)! * 100 : null,
+        tensorCoreActivity: tcMap?.get(gpuIdx) != null ? tcMap.get(gpuIdx)! * 100 : null,
       }));
 
       return {

@@ -551,7 +551,7 @@ input[type="range"]:disabled {
 }
 .gpu-box.gpu-none .gpu-box-value { color: var(--text-muted); }
 
-.gpu-box-mem {
+.gpu-box-secondary {
   font-size: 0.6rem;
   color: var(--text-muted);
   margin-top: 2px;
